@@ -5,9 +5,12 @@ use sc_client_api::ExecutorProvider;
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
 use sc_service::DEFAULT_GROUP_NAME;
-use sha3pow::MinimalSha3Algorithm;
+use sc_telemetry::{Telemetry, TelemetryWorker};
+use sha3pow::{MinimalSha3Algorithm, Compute, hash_meets_difficulty};
 use std::{sync::Arc, time::Duration};
-use frame_benchmarking::frame_support::codec::Decode;
+use std::thread;
+use futures::executor::block_on;
+use sp_core::{U256, Encode, Decode};
 use sp_inherents::{InherentIdentifier, InherentData};
 use async_trait;
 
@@ -91,7 +94,8 @@ pub fn new_partial(
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
-		sc_consensus_pow::PowBlockImport<
+		(
+			sc_consensus_pow::PowBlockImport<
 			Block,
 			Arc<FullClient>,
 			FullClient,
@@ -100,6 +104,8 @@ pub fn new_partial(
 			impl sp_consensus::CanAuthorWith<Block>,
 			impl sp_inherents::CreateInherentDataProviders<Block, ()>,
 		>,
+			Option<Telemetry>,
+		),
 	>,
 	ServiceError,
 > {
@@ -110,8 +116,27 @@ pub fn new_partial(
 		config.max_runtime_instances,
 	);
 
+	let telemetry = config
+		.telemetry_endpoints
+		.clone()
+		.filter(|x| !x.is_empty())
+		.map(|endpoints| -> Result<_, sc_telemetry::Error> {
+			let worker = TelemetryWorker::new(16)?;
+			let telemetry = worker.handle().new_telemetry(endpoints);
+			Ok((worker, telemetry))
+		})
+		.transpose()?;
+
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(&config, None, executor)?;
+		sc_service::new_full_parts::<Block, RuntimeApi, _>(&config,
+														   telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+														   executor)?;
+	// map telemetry to task manager.
+	let telemetry = telemetry.map(|(worker, telemetry)| {
+		task_manager.spawn_handle().spawn("telemetry", None, worker.run());
+		telemetry
+	});
+
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 	let client = Arc::new(client);
 
@@ -152,7 +177,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain,
-		other: pow_block_import,
+		other: (pow_block_import, telemetry)
 	})
 }
 
@@ -166,7 +191,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: pow_block_import,
+		other: (pow_block_import, mut telemetry),
 	} = new_partial(&config)?;
 
 	let (network, system_rpc_tx, network_starter) =
@@ -211,7 +236,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 			client.clone(),
 			transaction_pool.clone(),
 			prometheus_registry.as_ref(),
-			None
+			telemetry.as_ref().map(|x| x.handle()),
 		);
 
 		let can_author_with =
@@ -235,15 +260,45 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 				Ok(InherentDataProvider)
 			},
 			// time to wait for a new block before starting to mine a new one
-			Duration::from_secs(10),
+			Duration::from_secs(30),
 			// how long to take to actually build the block (i.e. executing extrinsics)
-			Duration::from_secs(10),
+			Duration::from_secs(30),
 			can_author_with,
 		);
 		
 		task_manager
 			.spawn_essential_handle()
 			.spawn_blocking("pow", DEFAULT_GROUP_NAME ,worker_task);
+
+		// Start Mining
+		let mut nonce: U256 = U256::from(0i32);
+		// mining worker with mutex lock and arc pointer
+		let worker = Arc::new(_worker);
+		thread::spawn(move || loop {
+			let worker = worker.clone();
+			let metadata = worker.metadata();
+			if let Some(metadata) = metadata {
+				let compute = Compute {
+					difficulty: metadata.difficulty,
+					pre_hash: metadata.pre_hash,
+					nonce,
+				};
+				let seal = compute.compute();
+				if hash_meets_difficulty(&seal.work, seal.difficulty) {
+					nonce = U256::from(0i32);
+					// blocking on the block import,
+					// since the Mutex cannot be sent to another thread.
+					block_on(worker.submit(seal.encode()));
+				} else {
+					nonce = nonce.saturating_add(U256::from(1i32));
+					if nonce == U256::MAX {
+						nonce = U256::from(0i32);
+					}
+				}
+			} else {
+				thread::sleep(Duration::new(1, 0));
+			}
+		});
 	}
 
 	// spawn rpc tasks
@@ -252,12 +307,12 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		client,
 		keystore: keystore_container.sync_keystore(),
 		task_manager: &mut task_manager,
-		transaction_pool: transaction_pool,
+		transaction_pool,
 		rpc_extensions_builder,
 		backend,
 		system_rpc_tx,
 		config,
-		telemetry: None,
+		telemetry: telemetry.as_mut(),
 	})?;
 
 	network_starter.start_network();
