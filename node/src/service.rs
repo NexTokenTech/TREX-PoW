@@ -150,7 +150,6 @@ pub fn new_partial(
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-	// TODO: inner is not well defined here.
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
 		Arc::clone(&client),
@@ -182,7 +181,7 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -214,18 +213,6 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		);
 	}
 
-	let rpc_extensions_builder = {
-		let client = Arc::clone(&client);
-		let pool = Arc::clone(&transaction_pool);
-
-		Box::new(move |deny_unsafe, _| {
-			let deps =
-				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
-
-			Ok(crate::rpc::create_full(deps))
-		})
-	};
-
 	let is_authority = config.role.is_authority();
 	let prometheus_registry = config.prometheus_registry().cloned();
 
@@ -242,64 +229,80 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		let can_author_with =
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-		// Parameter details:
-		//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
-		// Also refer to kulupu config:
-		//   https://github.com/kulupu/kulupu/blob/master/src/service.rs
-		let (_worker, worker_task) = sc_consensus_pow::start_mining_worker(
-			Box::new(pow_block_import),
-			Arc::clone(&client),
-			select_chain,
-			MinimalSha3Algorithm,
-			proposer,
-			Arc::clone(&network),
-			Arc::clone(&network),
-			None,
-			// For block production we want to provide our inherent data provider
-			|_parent, ()| async {
-				Ok(InherentDataProvider)
-			},
-			// time to wait for a new block before starting to mine a new one
-			Duration::from_secs(30),
-			// how long to take to actually build the block (i.e. executing extrinsics)
-			Duration::from_secs(30),
-			can_author_with,
-		);
-		
-		task_manager
-			.spawn_essential_handle()
-			.spawn_blocking("pow", DEFAULT_GROUP_NAME ,worker_task);
+		if mining {
+			// Parameter details:
+			//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
+			// Also refer to kulupu config:
+			//   https://github.com/kulupu/kulupu/blob/master/src/service.rs
+			let (_worker, worker_task) = sc_consensus_pow::start_mining_worker(
+				Box::new(pow_block_import),
+				Arc::clone(&client),
+				select_chain,
+				MinimalSha3Algorithm,
+				proposer,
+				Arc::clone(&network),
+				Arc::clone(&network),
+				None,
+				// For block production we want to provide our inherent data provider
+				|_parent, ()| async {
+					Ok(InherentDataProvider)
+				},
+				// time to wait for a new block before starting to mine a new one
+				Duration::from_secs(30),
+				// how long to take to actually build the block (i.e. executing extrinsics)
+				Duration::from_secs(30),
+				can_author_with,
+			);
 
-		// Start Mining
-		let mut nonce: U256 = U256::from(0i32);
-		// mining worker with mutex lock and arc pointer
-		let worker = Arc::new(_worker);
-		thread::spawn(move || loop {
-			let worker = Arc::clone(&worker);
-			let metadata = worker.metadata();
-			if let Some(metadata) = metadata {
-				let compute = Compute {
-					difficulty: metadata.difficulty,
-					pre_hash: metadata.pre_hash,
-					nonce,
-				};
-				let seal = compute.compute();
-				if hash_meets_difficulty(&seal.work, seal.difficulty) {
-					nonce = U256::from(0i32);
-					// blocking on the block import,
-					// since the Mutex cannot be sent to another thread.
-					block_on(worker.submit(seal.encode()));
-				} else {
-					nonce = nonce.saturating_add(U256::from(1i32));
-					if nonce == U256::MAX {
+			task_manager
+				.spawn_essential_handle()
+				.spawn_blocking("pow", DEFAULT_GROUP_NAME ,worker_task);
+
+			// Start Mining
+			let mut nonce: U256 = U256::from(0i32);
+			// mining worker with mutex lock and arc pointer
+			let worker = Arc::new(_worker);
+			thread::spawn(move || loop {
+				let worker = Arc::clone(&worker);
+				let metadata = worker.metadata();
+				if let Some(metadata) = metadata {
+					let compute = Compute {
+						difficulty: metadata.difficulty,
+						pre_hash: metadata.pre_hash,
+						nonce,
+					};
+					let seal = compute.compute();
+					if hash_meets_difficulty(&seal.work, seal.difficulty) {
 						nonce = U256::from(0i32);
+						// blocking on the block import,
+						// since the Mutex cannot be sent to another thread.
+						block_on(worker.submit(seal.encode()));
+					} else {
+						nonce = nonce.saturating_add(U256::from(1i32));
+						if nonce == U256::MAX {
+							nonce = U256::from(0i32);
+						}
 					}
+				} else {
+					thread::sleep(Duration::new(1, 0));
 				}
-			} else {
-				thread::sleep(Duration::new(1, 0));
-			}
-		});
+			});
+		}
+
+
 	}
+
+	// prepare rpc builder
+	let full_client = Arc::clone(&client);
+	let tx_pool = Arc::clone(&transaction_pool);
+	// here the arc pointer has to be cloned again so that every time this closure is called,
+	// the arc pointer counter will be incremented but the pointer is not moved into the closure.
+	let rpc_extensions_builder = Box::new(move |deny_unsafe, _| {
+		let deps =
+			crate::rpc::FullDeps { client: full_client.clone(), pool: tx_pool.clone(), deny_unsafe };
+
+		Ok(crate::rpc::create_full(deps))
+	});
 
 	// spawn rpc tasks
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -318,5 +321,3 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 	network_starter.start_network();
 	Ok(task_manager)
 }
-
-// TODO: Builds a new service for a light client.
