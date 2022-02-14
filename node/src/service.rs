@@ -137,7 +137,7 @@ pub fn new_partial(
 		telemetry
 	});
 
-	let select_chain = sc_consensus::LongestChain::new(backend.clone());
+	let select_chain = sc_consensus::LongestChain::new(Arc::clone(&backend));
 	let client = Arc::new(client);
 
 	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
@@ -145,15 +145,15 @@ pub fn new_partial(
 		config.role.is_authority().into(),
 		config.prometheus_registry(),
 		task_manager.spawn_essential_handle(),
-		client.clone(),
+		Arc::clone(&client),
 	);
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 	// TODO: inner is not well defined here.
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
-		client.clone(),
-		client.clone(),
+		Arc::clone(&client),
+		Arc::clone(&client),
 		sha3pow::MinimalSha3Algorithm,
 		0, // check inherent starting at block 0
 		select_chain.clone(),
@@ -197,8 +197,8 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
-			client: client.clone(),
-			transaction_pool: transaction_pool.clone(),
+			client: Arc::clone(&client),
+			transaction_pool: Arc::clone(&transaction_pool),
 			spawn_handle: task_manager.spawn_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
@@ -209,14 +209,14 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		sc_service::build_offchain_workers(
 			&config,
 			task_manager.spawn_handle(),
-			client.clone(),
-			network.clone(),
+			Arc::clone(&client),
+			Arc::clone(&network),
 		);
 	}
 
 	let rpc_extensions_builder = {
-		let client = client.clone();
-		let pool = transaction_pool.clone();
+		let client = Arc::clone(&client);
+		let pool = Arc::clone(&transaction_pool);
 
 		Box::new(move |deny_unsafe, _| {
 			let deps =
@@ -233,8 +233,8 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 	if is_authority {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
-			client.clone(),
-			transaction_pool.clone(),
+			Arc::clone(&client),
+			Arc::clone(&transaction_pool),
 			prometheus_registry.as_ref(),
 			telemetry.as_ref().map(|x| x.handle()),
 		);
@@ -248,12 +248,12 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		//   https://github.com/kulupu/kulupu/blob/master/src/service.rs
 		let (_worker, worker_task) = sc_consensus_pow::start_mining_worker(
 			Box::new(pow_block_import),
-			client.clone(),
+			Arc::clone(&client),
 			select_chain,
 			MinimalSha3Algorithm,
 			proposer,
-			network.clone(),
-			network.clone(),
+			Arc::clone(&network),
+			Arc::clone(&network),
 			None,
 			// For block production we want to provide our inherent data provider
 			|_parent, ()| async {
@@ -275,7 +275,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		// mining worker with mutex lock and arc pointer
 		let worker = Arc::new(_worker);
 		thread::spawn(move || loop {
-			let worker = worker.clone();
+			let worker = Arc::clone(&worker);
 			let metadata = worker.metadata();
 			if let Some(metadata) = metadata {
 				let compute = Compute {
