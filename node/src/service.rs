@@ -1,18 +1,18 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use async_trait;
 use capsule_runtime::{self, opaque::Block, RuntimeApi};
+use futures::executor::block_on;
 use sc_client_api::ExecutorProvider;
 pub use sc_executor::NativeElseWasmExecutor;
-use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
-use sc_service::DEFAULT_GROUP_NAME;
+use sc_service::{
+	error::Error as ServiceError, Configuration, PartialComponents, TaskManager, DEFAULT_GROUP_NAME,
+};
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sha3pow::{MinimalSha3Algorithm, Compute, hash_meets_difficulty};
-use std::{sync::Arc, time::Duration};
-use std::thread;
-use futures::executor::block_on;
-use sp_core::{U256, Encode, Decode};
-use sp_inherents::{InherentIdentifier, InherentData};
-use async_trait;
+use sha3pow::{hash_meets_difficulty, Compute, MinimalSha3Algorithm};
+use sp_core::{Decode, Encode, U256};
+use sp_inherents::{InherentData, InherentIdentifier};
+use std::{sync::Arc, thread, time::Duration};
 
 // This needs to be unique for the runtime.
 const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh0";
@@ -47,14 +47,12 @@ impl sp_inherents::InherentDataProvider for InherentDataProvider {
 	) -> Option<Result<(), sp_inherents::Error>> {
 		// Check if this error belongs to us.
 		if *identifier != INHERENT_IDENTIFIER {
-			return None;
+			return None
 		}
 
 		// For demonstration purposes we are using a `String` as error type. In real
 		// implementations it is advised to not use `String`.
-		Some(Err(
-			sp_inherents::Error::Application(Box::from(String::decode(&mut error).ok()?))
-		))
+		Some(Err(sp_inherents::Error::Application(Box::from(String::decode(&mut error).ok()?))))
 	}
 }
 
@@ -78,7 +76,8 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	}
 }
 
-type FullClient = sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
+type FullClient =
+	sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
@@ -96,20 +95,19 @@ pub fn new_partial(
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
 			sc_consensus_pow::PowBlockImport<
-			Block,
-			Arc<FullClient>,
-			FullClient,
-			FullSelectChain,
-			MinimalSha3Algorithm,
-			impl sp_consensus::CanAuthorWith<Block>,
-			impl sp_inherents::CreateInherentDataProviders<Block, ()>,
-		>,
+				Block,
+				Arc<FullClient>,
+				FullClient,
+				FullSelectChain,
+				MinimalSha3Algorithm,
+				impl sp_consensus::CanAuthorWith<Block>,
+				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
+			>,
 			Option<Telemetry>,
 		),
 	>,
 	ServiceError,
 > {
-
 	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
 		config.wasm_method,
 		config.default_heap_pages,
@@ -128,9 +126,11 @@ pub fn new_partial(
 		.transpose()?;
 
 	let (client, backend, keystore_container, task_manager) =
-		sc_service::new_full_parts::<Block, RuntimeApi, _>(&config,
-														   telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
-														   executor)?;
+		sc_service::new_full_parts::<Block, RuntimeApi, _>(
+			&config,
+			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
+			executor,
+		)?;
 	// map telemetry to task manager.
 	let telemetry = telemetry.map(|(worker, telemetry)| {
 		task_manager.spawn_handle().spawn("telemetry", None, worker.run());
@@ -176,7 +176,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain,
-		other: (pow_block_import, telemetry)
+		other: (pow_block_import, telemetry),
 	})
 }
 
@@ -216,7 +216,6 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 	let is_authority = config.role.is_authority();
 	let prometheus_registry = config.prometheus_registry().cloned();
 
-
 	if is_authority {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -244,9 +243,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				Arc::clone(&network),
 				None,
 				// For block production we want to provide our inherent data provider
-				|_parent, ()| async {
-					Ok(InherentDataProvider)
-				},
+				|_parent, ()| async { Ok(InherentDataProvider) },
 				// time to wait for a new block before starting to mine a new one
 				Duration::from_secs(30),
 				// how long to take to actually build the block (i.e. executing extrinsics)
@@ -254,9 +251,11 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				can_author_with,
 			);
 
-			task_manager
-				.spawn_essential_handle()
-				.spawn_blocking("pow", DEFAULT_GROUP_NAME ,worker_task);
+			task_manager.spawn_essential_handle().spawn_blocking(
+				"pow",
+				DEFAULT_GROUP_NAME,
+				worker_task,
+			);
 
 			// Start Mining
 			let mut nonce: U256 = U256::from(0i32);
@@ -288,8 +287,6 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				}
 			});
 		}
-
-
 	}
 
 	// prepare rpc builder
@@ -298,8 +295,11 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 	// here the arc pointer has to be cloned again so that every time this closure is called,
 	// the arc pointer counter will be incremented but the pointer is not moved into the closure.
 	let rpc_extensions_builder = Box::new(move |deny_unsafe, _| {
-		let deps =
-			crate::rpc::FullDeps { client: full_client.clone(), pool: tx_pool.clone(), deny_unsafe };
+		let deps = crate::rpc::FullDeps {
+			client: full_client.clone(),
+			pool: tx_pool.clone(),
+			deny_unsafe,
+		};
 
 		Ok(crate::rpc::create_full(deps))
 	});
