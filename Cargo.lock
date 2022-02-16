@@ -625,6 +625,8 @@ dependencies = [
  "frame-benchmarking-cli",
  "futures 0.3.19",
  "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
  "log",
  "pallet-transaction-payment-rpc",
  "rand 0.7.3",

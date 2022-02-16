@@ -46,6 +46,8 @@ sp-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/parityt
 
 # These dependencies are used for the node template's RPCs
 jsonrpc-core = "18.0.0"
+jsonrpc-derive = "18.0.0"
+jsonrpc-core-client = "18.0.0"
 sc-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sc-rpc-api = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
