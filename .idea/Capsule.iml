@@ -6,10 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/pallets/template/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/runtime/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/consensus/sha3pow/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/pallets/capsule-storage/rpc/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/pallets/capsule-storage/runtime-api/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/pallets/capsule-storage/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/primitives/consensus/cp_provider/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/primitives/runtime/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

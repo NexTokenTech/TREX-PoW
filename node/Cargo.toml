@@ -69,6 +69,7 @@ capsule-storage-rpc = { path = "../pallets/capsule-storage/rpc" }
 capsule-storage-runtime-api = { path = "../pallets/capsule-storage/runtime-api" }
 # custom inherent package
 cp-inherent = { path = "../primitives/consensus/cp_provider"}
+cp-runtime = { path = "../primitives/runtime" }
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }

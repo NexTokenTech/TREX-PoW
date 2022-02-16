@@ -26,7 +26,6 @@ pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, 
 frame-executive = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-block-builder = {  version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest"}
-sp-consensus-aura = { version = "0.10.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-core = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-inherents = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest"}
 sp-offchain = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
@@ -46,6 +45,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 hex-literal = { version = "0.3.4", optional = true }
 
 # Local Dependencies
+cp-runtime = { version = "0.1.0", default-features = false, path = "../primitives/runtime" }
 pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
 
 # Local Pallet for Capsule Storage
@@ -74,11 +74,11 @@ std = [
 	"pallet-transaction-payment/std",
 	"sp-api/std",
 	"sp-block-builder/std",
-	"sp-consensus-aura/std",
 	"sp-core/std",
 	"sp-inherents/std",
 	"sp-offchain/std",
 	"sp-runtime/std",
+	"cp-runtime/std",
 	"sp-session/std",
 	"sp-std/std",
 	"sp-transaction-pool/std",
