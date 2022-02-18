@@ -1,0 +1,9 @@
+[package]
+name = "cp-mining"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+elgamal_wasm = {default-features = false, git = "https://github.com/NexTokenTech/elgamal_wasm.git", branch = "master" }
