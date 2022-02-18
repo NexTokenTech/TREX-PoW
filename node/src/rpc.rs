@@ -13,7 +13,6 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use crate::silly_rpc;
 
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
@@ -34,6 +33,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
+	C::Api: sum_storage_runtime_api::SumStorageApi<Block>,
 	P: TransactionPool + 'static,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
@@ -49,6 +49,8 @@ where
 	io.extend_with(crate::silly_rpc::SillyRpc::to_delegate(
 		crate::silly_rpc::Silly {},
 	));
+
+	io.extend_with(sum_storage_rpc::SumStorageApi::to_delegate(sum_storage_rpc::SumStorage::new(client.clone())));
 
 	// Extend this RPC with a custom API by using the following syntax.
 	// `YourRpcStruct` should have a reference to a client, which is needed

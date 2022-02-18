@@ -1,4 +1,4 @@
-use jsonrpc_core::{IoHandler, Result};
+use jsonrpc_core::{Result};
 use jsonrpc_derive::rpc;
 
 #[rpc]

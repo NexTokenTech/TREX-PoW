@@ -238,6 +238,11 @@ impl pallet_template::Config for Runtime {
 	type Event = Event;
 }
 
+// ---------------------- Recipe Pallet Configurations ----------------------
+impl sum_storage::Config for Runtime {
+	type Event = Event;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -253,6 +258,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		SumStorage: sum_storage,
 	}
 );
 
@@ -284,6 +290,12 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
+	impl sum_storage_runtime_api::SumStorageApi<Block> for Runtime{
+		fn get_sum() -> u32{
+			SumStorage::get_sum()
+		}
+	}
+
 	impl sp_api::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion {
 			VERSION
