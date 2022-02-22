@@ -156,7 +156,10 @@ pub fn new_partial(
 		sha3pow::MinimalSha3Algorithm,
 		0, // check inherent starting at block 0
 		select_chain.clone(),
-		|_parent, ()| async { Ok(()) },
+		move |_, ()| async move {
+			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+			Ok(timestamp)
+		},
 		can_author_with,
 	);
 
@@ -243,7 +246,10 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				Arc::clone(&network),
 				None,
 				// For block production we want to provide our inherent data provider
-				|_parent, ()| async { Ok(InherentDataProvider) },
+				move |_, ()| async move {
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+					Ok(timestamp)
+				},
 				// time to wait for a new block before starting to mine a new one
 				Duration::from_secs(30),
 				// how long to take to actually build the block (i.e. executing extrinsics)
@@ -271,6 +277,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 						nonce,
 					};
 					let seal = compute.compute();
+					//TODO: print nonce,maybe difficulty is to high?
 					if hash_meets_difficulty(&seal.work, seal.difficulty) {
 						nonce = U256::from(0i32);
 						// blocking on the block import,
