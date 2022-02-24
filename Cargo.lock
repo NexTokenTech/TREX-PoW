@@ -637,6 +637,7 @@ version = "4.0.0-dev"
 dependencies = [
  "async-trait",
  "capsule-runtime",
+ "cp-consensus-inherent",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures 0.3.19",
@@ -887,6 +888,21 @@ name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
+
+[[package]]
+name = "cp-consensus-inherent"
+version = "0.10.0-dev"
+dependencies = [
+ "async-trait",
+ "futures-timer 3.0.2",
+ "log",
+ "parity-scale-codec 2.3.1",
+ "sp-api",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "thiserror",
+]
 
 [[package]]
 name = "cpufeatures"

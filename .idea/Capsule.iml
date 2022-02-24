@@ -9,6 +9,7 @@
       <sourceFolder url="file://$MODULE_DIR$/pallets/sum-storage/rpc/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/sum-storage/runtime-api/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/sum-storage/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/primitives/consensus/cp_provider/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

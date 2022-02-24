@@ -67,6 +67,7 @@ sha3pow = { path = '../consensus/sha3pow' }
 capsule-runtime = { path = "../runtime" }
 sum-storage-rpc = { path = "../pallets/sum-storage/rpc" }
 sum-storage-runtime-api = { path = "../pallets/sum-storage/runtime-api" }
+cp-consensus-inherent = { path = "../primitives/consensus/cp_provider"}
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
