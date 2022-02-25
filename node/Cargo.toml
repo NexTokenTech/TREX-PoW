@@ -1,7 +1,7 @@
 [package]
-name = "capsule-pow"
+name = "capsule-node"
 version = "4.0.0-dev"
-description = "A fresh FRAME-based Substrate node, ready for hacking."
+description = "A Capsule PoW node for decentralized time release encryption."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io/"
 edition = "2021"
@@ -14,7 +14,7 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "capsule-pow"
+name = "capsule-node"
 
 [dependencies]
 futures = '0.3.4'
@@ -63,6 +63,7 @@ frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/pari
 
 # Local Dependencies
 sha3pow = { path = '../consensus/sha3pow' }
+capsule-pow = {path = '../consensus/capsule-pow'}
 capsule-runtime = { path = "../runtime" }
 # custom RPC call Runtime API infered capsule packages
 capsule-storage-rpc = { path = "../pallets/capsule-storage/rpc" }
