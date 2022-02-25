@@ -1,4 +1,4 @@
-use rug::{rand::RandState, Integer};
+use rug::{rand::RandState, Integer, Complete};
 use rug::integer::Order;
 use sp_core::{H256, U256};
 
@@ -21,4 +21,38 @@ pub fn bigint_h256(int: &Integer) -> H256 {
 pub fn bigint_u256(int: &Integer) -> U256 {
     let slice: Vec<u8> = int.to_digits(Order::Lsf);
     U256::from_little_endian(&slice)
+}
+
+/// Derive private key from a pair of collided solutions.
+pub fn eqs_solvers(
+    a1: &Integer,
+    b1: &Integer,
+    a2: &Integer,
+    b2: &Integer,
+    n: &Integer,
+) -> Option<Integer> {
+    let r = Integer::from(b1 - b2).div_rem_euc_ref(n).complete().1;
+    if r == 0 {
+        None
+    } else {
+        match r.invert_ref(n) {
+            Some(inv) => {
+                let res_inv = Integer::from(inv);
+                let dif = Integer::from(a2 - a1);
+                Some(Integer::from(res_inv * dif).div_rem_euc_ref(n).complete().1)
+            },
+            None => {
+                let div = r.gcd(n);
+                // div is the first value of (g, x, y) as a result of gcd of r and n.
+                let res_l = Integer::from(b1 - b2) / &div;
+                let res_r = Integer::from(a2 - a2) / &div;
+                let p1 = Integer::from(n / &div);
+                match res_l.invert(&p1) {
+                    Ok(res_inv) =>
+                        Some(Integer::from(res_inv * res_r).div_rem_euc_ref(&p1).complete().1),
+                    Err(_) => None,
+                }
+            },
+        }
+    }
 }

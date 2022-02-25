@@ -17,4 +17,4 @@ sp-core = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrat
 sp-runtime = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 
 # Capsule packages
-elgamal_wasm = {default-features = false, git = "https://github.com/NexTokenTech/elgamal_wasm.git", branch = "master" }
+elgamal_wasm = {version = "0.1.1", git = "https://github.com/NexTokenTech/elgamal_wasm.git", branch = "master" }

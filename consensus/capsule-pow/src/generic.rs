@@ -1,5 +1,5 @@
-use sp_consensus_pow::Seal;
 use elgamal_wasm::generic::PublicKey;
+use parity_scale_codec::{Decode, Encode};
 
 #[derive(Debug, Clone)]
 pub struct MappingError;
@@ -8,7 +8,7 @@ pub struct MappingError;
 pub type MapResult<T> = std::result::Result<T, MappingError>;
 
 /// Solution within pollard rho method.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]
 pub struct Solution<I> {
     pub a: I,
     pub b: I,
@@ -23,6 +23,7 @@ pub struct State<I> {
     pub nonce: I,
     // current y_i
     pub work: I,
+    pub pubkey: PublicKey<I>,
 }
 
 pub trait Hash<I> {
@@ -31,7 +32,7 @@ pub trait Hash<I> {
 }
 
 /// Mapping nodes in the DAG generated in Pollard Rho method.
-pub trait DagMapping<I> {
+pub trait Mapping<I> {
     /// This function represents: x_(i+1) = func_f(x_i)
     fn func_f(&self, x_i: &I, y_i: &I) -> MapResult<I>;
     /// This function represents: a_(i+1) = func_g(a_i, x_i)
@@ -40,9 +41,9 @@ pub trait DagMapping<I> {
     fn func_h(&self, b_i: &I, x_i: &I) -> MapResult<I>;
 }
 
-pub trait CycleFinding<I>: DagMapping<I> {
+pub trait CycleFinding<I>: Mapping<I> {
     /// Use current state and block hash to find next state.
-    fn transit<C: Hash<I>>(&self, state: State<I>, compute: &mut C) -> MapResult<State<I>>;
+    fn transit<C: Hash<I>>(self, compute: &mut C) -> MapResult<State<I>>;
 }
 
 /// Solver trait to generate private key from intermediate solution in pollard rho method.
