@@ -13,19 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Inherents for BABE
+//! Inherents for Capsule
 
 use sp_inherents::{Error, InherentData, InherentIdentifier};
 
 use sp_std::result::Result;
 
-/// The BABE inherent identifier.
-pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"testinh1";
+/// The Capsule inherent identifier.
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"capsule0";
 
 /// The type of the BABE inherent.
 pub type InherentType = String;
 
-/// Provides the slot duration inherent data for Capsule.
+/// Provides the custom value inherent data for Capsule.
 // TODO: Remove in the future. https://github.com/paritytech/substrate/issues/8029
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
@@ -35,7 +35,7 @@ pub struct InherentDataProvider {
 
 #[cfg(feature = "std")]
 impl InherentDataProvider {
-    /// Create `Self` while using the system time to get the timestamp.
+    /// Create `Self` while using the default value to get the String.
     pub fn from_default_value() -> Self {
         Self {
             custom_value: "hello".to_string(),

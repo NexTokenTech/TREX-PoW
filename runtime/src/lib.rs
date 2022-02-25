@@ -239,7 +239,7 @@ impl pallet_template::Config for Runtime {
 }
 
 // ---------------------- Recipe Pallet Configurations ----------------------
-impl sum_storage::Config for Runtime {
+impl capsule_storage::Config for Runtime {
 	type Event = Event;
 }
 
@@ -258,7 +258,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
-		SumStorage: sum_storage,
+		CapsuleStorage: capsule_storage,
 	}
 );
 
@@ -290,9 +290,9 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
-	impl sum_storage_runtime_api::SumStorageApi<Block> for Runtime{
+	impl capsule_storage_runtime_api::SumStorageApi<Block> for Runtime{
 		fn get_sum() -> u32{
-			SumStorage::get_sum()
+			CapsuleStorage::get_sum()
 		}
 	}
 

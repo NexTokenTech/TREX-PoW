@@ -1,6 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use async_trait;
 use capsule_runtime::{self, opaque::Block, RuntimeApi};
 use futures::executor::block_on;
 use sc_client_api::ExecutorProvider;
@@ -11,7 +10,6 @@ use sc_service::{
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sha3pow::{hash_meets_difficulty, Compute, MinimalSha3Algorithm};
 use sp_core::{Decode, Encode, U256};
-use sp_inherents::{InherentData, InherentIdentifier};
 use std::{sync::Arc, thread, time::Duration};
 
 // Our native executor instance.
@@ -117,7 +115,7 @@ pub fn new_partial(
 		|_parent, ()| async {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-			let data_1 = cp_consensus_inherent::InherentDataProvider::from_default_value();
+			let data_1 = cp_inherent::InherentDataProvider::from_default_value();
 
 			Ok((timestamp,data_1))
 		},
@@ -210,7 +208,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				|_parent, ()| async {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
 
-					let data_1 = cp_consensus_inherent::InherentDataProvider::from_default_value();
+					let data_1 = cp_inherent::InherentDataProvider::from_default_value();
 
 					Ok((timestamp,data_1))
 				},

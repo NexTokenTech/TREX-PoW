@@ -56,7 +56,6 @@ sp-block-builder = { version = "4.0.0-dev", git = "https://github.com/paritytech
 sc-basic-authorship = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 substrate-frame-rpc-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 pallet-transaction-payment-rpc = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
-sp-consensus-aura = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 
 # These dependencies are used for runtime benchmarking
 frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
@@ -65,9 +64,11 @@ frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/pari
 # Local Dependencies
 sha3pow = { path = '../consensus/sha3pow' }
 capsule-runtime = { path = "../runtime" }
-sum-storage-rpc = { path = "../pallets/sum-storage/rpc" }
-sum-storage-runtime-api = { path = "../pallets/sum-storage/runtime-api" }
-cp-consensus-inherent = { path = "../primitives/consensus/cp_provider"}
+# custom RPC call Runtime API infered capsule packages
+capsule-storage-rpc = { path = "../pallets/capsule-storage/rpc" }
+capsule-storage-runtime-api = { path = "../pallets/capsule-storage/runtime-api" }
+# custom inherent package
+cp-inherent = { path = "../primitives/consensus/cp_provider"}
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }

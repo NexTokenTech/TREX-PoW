@@ -1,5 +1,5 @@
 [package]
-name = "sum-storage-rpc"
+name = "capsule-storage-rpc"
 version = "4.0.0-dev"
 edition = "2021"
 authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
@@ -23,7 +23,7 @@ sp-runtime = { default-features = false, version = "4.0.0-dev", git = "https://g
 
 # local packages
 
-sum-storage-runtime-api = { version = "4.0.0-dev", path = "../runtime-api", default-features = false }
+capsule-storage-runtime-api = { version = "4.0.0-dev", path = "../runtime-api", default-features = false }
 
 [features]
 default = ["std"]
@@ -31,5 +31,5 @@ std = [
   "serde",
   "sp-api/std",
   "sp-runtime/std",
-  "sum-storage-runtime-api/std"
+  "capsule-storage-runtime-api/std"
 ]

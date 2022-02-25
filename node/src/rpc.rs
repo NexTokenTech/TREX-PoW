@@ -33,7 +33,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
-	C::Api: sum_storage_runtime_api::SumStorageApi<Block>,
+	C::Api: capsule_storage_runtime_api::SumStorageApi<Block>,// Extend this RPC with currency runtime api for capsule_storage
 	P: TransactionPool + 'static,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
@@ -46,11 +46,7 @@ where
 
 	io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(client.clone())));
 
-	io.extend_with(crate::silly_rpc::SillyRpc::to_delegate(
-		crate::silly_rpc::Silly {},
-	));
-
-	io.extend_with(sum_storage_rpc::SumStorageApi::to_delegate(sum_storage_rpc::SumStorage::new(client.clone())));
+	io.extend_with(capsule_storage_rpc::SumStorageApi::to_delegate(capsule_storage_rpc::SumStorage::new(client.clone())));
 
 	// Extend this RPC with a custom API by using the following syntax.
 	// `YourRpcStruct` should have a reference to a client, which is needed
