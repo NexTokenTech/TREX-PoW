@@ -12,7 +12,7 @@ use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use codec::{Encode, Decode};
 
 // local packages.
-use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State, Solutions};
+pub use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State, Solutions};
 use utils::{bigint_u256, u256_bigint, gen_bigint_range};
 
 // constants.
@@ -37,7 +37,7 @@ pub struct Header {
 }
 
 impl Solution<Integer> {
-	pub fn new_random(n: Integer, seed: &Integer) -> Self {
+	fn new_random(n: Integer, seed: &Integer) -> Self {
 		let mut rand = RandState::new_mersenne_twister();
 		rand.seed(seed);
 		Solution {
@@ -47,7 +47,7 @@ impl Solution<Integer> {
 		}
 	}
 
-	pub fn to_u256(&self) -> Solution<U256> {
+	fn to_u256(&self) -> Solution<U256> {
 		Solution::<U256> {
 			a: bigint_u256(&self.a),
 			b: bigint_u256(&self.b),
@@ -55,7 +55,7 @@ impl Solution<Integer> {
 		}
 	}
 
-	pub fn from_u256(solution: &Solution<U256>) -> Self {
+	fn from_u256(solution: &Solution<U256>) -> Self {
 		Solution::<Integer> {
 			a: u256_bigint(&solution.a),
 			b: u256_bigint(&solution.b),
@@ -66,7 +66,7 @@ impl Solution<Integer> {
 
 impl State<Integer> {
 	/// Derive a new node state from a public key.
-	pub fn from_pub_key(key: PublicKey<Integer>, seed: Integer) -> Self {
+	fn from_pub_key(key: PublicKey<Integer>, seed: Integer) -> Self {
 		let p_1 = Integer::from(&key.p - 1);
 		let n = Integer::from(&p_1 / 2);
 		let solution = Solution::new_random(n, &seed);
