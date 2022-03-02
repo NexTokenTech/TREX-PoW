@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-parity-scale-codec = '2.0'
+codec = { package = "parity-scale-codec", version = "2.0.0" }
 rand = { version = "0.8", features = ["small_rng"] }
 sha2 = "0.10.2"
 rug = "1.14.1"
@@ -13,8 +13,8 @@ rug = "1.14.1"
 sc-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
-sp-core = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
-sp-runtime = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
+sp-core = { version = "5.0.0", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
+sp-runtime = { version = "5.0.0", git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 
 # Capsule packages
-elgamal_wasm = {version = "0.1.1", git = "https://github.com/NexTokenTech/elgamal_wasm.git", branch = "master" }
+elgamal_wasm = {version = "0.2.1", git = "https://github.com/NexTokenTech/elgamal_wasm.git", branch = "add_generator_trait" }

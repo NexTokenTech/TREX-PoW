@@ -1,11 +1,14 @@
 use elgamal_wasm::generic::PublicKey;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 
 #[derive(Debug, Clone)]
 pub struct MappingError;
 
 // type alias for mapping result.
 pub type MapResult<T> = std::result::Result<T, MappingError>;
+
+/// type alias for solutions of pollard rho method.
+pub type Solutions<I> = (Solution<I>, Solution<I>);
 
 /// Solution within pollard rho method.
 #[derive(Debug, Clone, Eq, PartialEq, Encode, Decode)]

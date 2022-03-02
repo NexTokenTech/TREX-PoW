@@ -203,6 +203,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				proposer,
 				Arc::clone(&network),
 				Arc::clone(&network),
+				// Here, the pre-runtime item is the public key for time release encryption.
 				None,
 				// For block production we want to provide our inherent data provider
 				|_parent, ()| async {

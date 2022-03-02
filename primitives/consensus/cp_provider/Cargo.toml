@@ -16,7 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 # substrate primitive package
 sp-api = { version = "4.0.0-dev",default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 sp-std = { version = "4.0.0-dev", default-features = false,git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
-sp-runtime = { version = "4.0.0-dev", default-features = false,git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
+sp-runtime = { version = "5.0.0", default-features = false,git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 sp-inherents = { version = "4.0.0-dev",default-features = false, git = "https://github.com/paritytech/substrate.git", tag = "devhub/latest" }
 thiserror = { version = "1.0.30", optional = true }

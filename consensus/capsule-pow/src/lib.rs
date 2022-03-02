@@ -2,19 +2,18 @@ mod generic;
 mod utils;
 
 use elgamal_wasm::generic::PublicKey;
-use parity_scale_codec::{Decode, Encode};
+use elgamal_wasm::{RawPublicKey};
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sc_consensus_pow::{Error, PowAlgorithm};
 use sha2::{Digest, Sha256};
-use sp_api::ProvideRuntimeApi;
-use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
+use sp_consensus_pow::Seal as RawSeal;
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::sync::Arc;
+use codec::{Encode, Decode};
 
 // local packages.
-use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State};
-use utils::{bigint_u256, gen_bigint_range};
+use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State, Solutions};
+use utils::{bigint_u256, u256_bigint, gen_bigint_range};
 
 // constants.
 const BIG_INT_0: Integer = Integer::ZERO;
@@ -23,8 +22,8 @@ const BIG_INT_0: Integer = Integer::ZERO;
 /// `RawSeal` type.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Seal {
-	pub difficulty: U256,
-	pub solution: Solution<U256>,
+	pub difficulty: u128,
+	pub solutions: Solutions<U256>,
 	pub nonce: U256,
 }
 
@@ -32,7 +31,7 @@ pub struct Seal {
 /// compute method will compute the hash and return the seal.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Header {
-	difficulty: U256,
+	difficulty: u128,
 	pre_hash: H256,
 	nonce: U256,
 }
@@ -53,6 +52,14 @@ impl Solution<Integer> {
 			a: bigint_u256(&self.a),
 			b: bigint_u256(&self.b),
 			n: bigint_u256(&self.n),
+		}
+	}
+
+	pub fn from_u256(solution: &Solution<U256>) -> Self {
+		Solution::<Integer> {
+			a: u256_bigint(&solution.a),
+			b: u256_bigint(&solution.b),
+			n: u256_bigint(&solution.n),
 		}
 	}
 }
@@ -96,8 +103,7 @@ impl Mapping<Integer> for State<Integer> {
 			0 => Ok(Integer::from(y_i.pow_mod_ref(x_i, p).unwrap())),
 			1 => {
 				let base_hash_p = Integer::from(base.pow_mod_ref(x_i, p).unwrap());
-				let res = (base_hash_p * y_i).div_rem_euc_ref(p).complete();
-				Ok(res.1)
+				Ok((base_hash_p * y_i).div_rem_euc_ref(p).complete().1)
 			},
 			2 => {
 				let h_hash_p = Integer::from(h.pow_mod_ref(x_i, p).unwrap());
@@ -150,6 +156,110 @@ impl CycleFinding<Integer> for State<Integer> {
 	}
 }
 
+/// To and from raw bytes of a public key. Use little endian byte order by default.
+pub trait RawKey {
+	fn to_raw(self) -> RawPublicKey;
+	fn from_raw(raw_key: RawPublicKey) -> Self;
+}
+
+impl RawKey for PublicKey<Integer> {
+	fn to_raw(self) -> RawPublicKey {
+		RawPublicKey {
+			p: bigint_u256(&self.p),
+			g: bigint_u256(&self.g),
+			h: bigint_u256(&self.h),
+			bit_length: self.bit_length,
+		}
+	}
+
+	fn from_raw(raw_key: RawPublicKey) -> Self {
+		PublicKey::<Integer>{
+			p: u256_bigint(&raw_key.p),
+			g: u256_bigint(&raw_key.g),
+			h: u256_bigint(&raw_key.h),
+			bit_length: raw_key.bit_length,
+		}
+	}
+}
+
+/// A verifier contains methods to validate mining results.
+pub struct SolutionVerifier;
+
+impl SolutionVerifier {
+	/// Derive one side of the value for the equation in the pollard rho method.
+	fn derive(&self, solution: &Solution<Integer>, pubkey: &PublicKey<Integer>) -> Integer {
+		let g_a_p = Integer::from(pubkey.g.pow_mod_ref(&solution.a, &pubkey.p).unwrap());
+		let h_b_p = Integer::from(pubkey.h.pow_mod_ref(&solution.b, &pubkey.p).unwrap());
+		(g_a_p * h_b_p).div_rem_euc_ref(&pubkey.p).complete().1
+	}
+
+	/// Verify the validation of solutions and
+	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey<Integer>, header: &Header) -> bool {
+		let y_1 = self.derive(&solutions.0, &pubkey);
+		let y_2 =  self.derive(&solutions.1, &pubkey);
+		// if solutions are valid, verify the hash of nonce.
+		let hash_i = header.hash_integer().div_rem_euc(pubkey.p.clone()).1;
+		let nonce = u256_bigint(&header.nonce);
+		let state = State::<Integer>::from_pub_key(pubkey.clone(), Integer::from(1));
+		let work = state.func_f(&hash_i, &nonce).unwrap();
+		y_1 == y_2 && y_1 == work
+	}
+}
+
+/// A minimal PoW algorithm that uses Sha3 hashing.
+/// Difficulty is fixed at 1_000_000
+#[derive(Clone)]
+pub struct MinimalCapsuleAlgorithm;
+
+// Here we implement the minimal Capsule Pow Algorithm trait
+impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
+	type Difficulty = u128;
+
+	fn difficulty(&self, _parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
+		// Fixed difficulty hardcoded here
+		Ok(32u128)
+	}
+
+	fn verify(
+		&self,
+		_parent: &BlockId<B>,
+		pre_hash: &H256,
+		_pre_digest: Option<&[u8]>,
+		seal: &RawSeal,
+		difficulty: Self::Difficulty,
+	) -> Result<bool, Error<B>> {
+		// Try to construct a seal object by decoding the raw seal given
+		let seal = match Seal::decode(&mut &seal[..]) {
+			Ok(seal) => seal,
+			Err(_) => return Ok(false),
+		};
+
+		// Make sure the provided work actually comes from the correct pre_hash
+		let header = Header {
+			difficulty,
+			pre_hash: *pre_hash,
+			nonce: seal.nonce,
+		};
+
+
+		if let Some(digest) = _pre_digest {
+			let coded_key = digest.to_owned();
+			let raw_key = RawPublicKey::decode(&mut coded_key.as_slice()).unwrap();
+			let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+			let verifier = SolutionVerifier;
+			let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
+							 Solution::<Integer>::from_u256(&seal.solutions.1));
+			if verifier.verify(&solutions, &pubkey, &header) {
+				return Ok(true);
+			}
+		}
+
+		Ok(false)
+	}
+}
+
+
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -161,7 +271,7 @@ mod tests {
 		let mut state_1 = State::<Integer>::from_pub_key(pubkey, seed);
 		let mut state_2 = state_1.clone();
 		let mut header_1 = Header {
-			difficulty: U256::from(32i32),
+			difficulty: 32u128,
 			pre_hash: H256::from([1u8; 32]),
 			nonce: U256::from(0i32),
 		};

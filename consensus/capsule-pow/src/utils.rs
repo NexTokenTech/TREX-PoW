@@ -11,7 +11,9 @@ pub fn gen_bigint_range(rand: &mut RandState, start: &Integer, stop: &Integer) -
     start + below
 }
 
+
 /// Convert big integer to H256 type.
+#[allow(dead_code)]
 pub fn bigint_h256(int: &Integer) -> H256 {
     let slice: Vec<u8> = int.to_digits(Order::Lsf);
     H256::from_slice(&slice)
@@ -21,6 +23,13 @@ pub fn bigint_h256(int: &Integer) -> H256 {
 pub fn bigint_u256(int: &Integer) -> U256 {
     let slice: Vec<u8> = int.to_digits(Order::Lsf);
     U256::from_little_endian(&slice)
+}
+
+/// Convert U256 to big integer.
+pub fn u256_bigint(unsigned: &U256) -> Integer {
+    let mut num: [u8; 32] = [0u8; 32];
+    unsigned.to_little_endian(&mut num);
+    Integer::from_digits(&num, Order::Lsf)
 }
 
 /// Derive private key from a pair of collided solutions.
