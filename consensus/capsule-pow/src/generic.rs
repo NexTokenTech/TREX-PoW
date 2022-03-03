@@ -29,8 +29,9 @@ pub struct State<I> {
     pub pubkey: PublicKey<I>,
 }
 
-pub trait Hash<I> {
-    fn update_nonce(&mut self, int: &I);
+pub trait Hash<I, E: Encode> {
+    fn set_nonce(&mut self, int: &I);
+    fn get_nonce(&self) -> E;
     fn hash_integer(&self) -> I;
 }
 
@@ -44,9 +45,9 @@ pub trait Mapping<I> {
     fn func_h(&self, b_i: &I, x_i: &I) -> MapResult<I>;
 }
 
-pub trait CycleFinding<I>: Mapping<I> {
+pub trait CycleFinding<I, E: Encode>: Mapping<I> {
     /// Use current state and block hash to find next state.
-    fn transit<C: Hash<I>>(self, compute: &mut C) -> MapResult<State<I>>;
+    fn transit<C: Hash<I, E>>(self, compute: &mut C) -> MapResult<State<I>>;
 }
 
 /// Solver trait to generate private key from intermediate solution in pollard rho method.

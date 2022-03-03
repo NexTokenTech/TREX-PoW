@@ -2,7 +2,7 @@ mod generic;
 mod utils;
 
 use elgamal_wasm::generic::PublicKey;
-use elgamal_wasm::{RawPublicKey};
+use elgamal_wasm::{KeyGenerator, RawPublicKey};
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sc_consensus_pow::{Error, PowAlgorithm};
 use sha2::{Digest, Sha256};
@@ -23,17 +23,41 @@ const BIG_INT_0: Integer = Integer::ZERO;
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Seal {
 	pub difficulty: u128,
+	pub pubkey: RawPublicKey,
 	pub solutions: Solutions<U256>,
 	pub nonce: U256,
+}
+
+impl Seal {
+	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256>>(&self, compute: &mut C, seed: U256) -> Option<Self>{
+		let seed_int = u256_bigint(&seed);
+		let raw_pubkey = &self.pubkey;
+		// generate a new pubkey from existing pubkey with difficulty adjustment.
+		// TODO: difficulty adjustment is not yet implemented.
+		let difficulty = self.difficulty;
+		let old_pubkey = raw_pubkey.yield_pubkey(difficulty as u32);
+		let pubkey = PublicKey::<Integer>::from_raw(old_pubkey.clone());
+		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {
+			// if find the solutions, build a new seal.
+			Some(Seal {
+				difficulty,
+				pubkey: pubkey.to_raw(),
+				solutions: (solutions.0.to_u256(), solutions.1.to_u256()),
+				nonce: compute.get_nonce(),
+			})
+		} else{
+			None
+		}
+	}
 }
 
 /// A not-yet-computed attempt to solve the proof of work. Calling the
 /// compute method will compute the hash and return the seal.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct Header {
-	difficulty: u128,
-	pre_hash: H256,
-	nonce: U256,
+pub struct Compute {
+	pub difficulty: u128,
+	pub pre_hash: H256,
+	pub nonce: U256,
 }
 
 impl Solution<Integer> {
@@ -78,10 +102,12 @@ impl State<Integer> {
 	}
 }
 
-impl Hash<Integer> for Header {
-	fn update_nonce(&mut self, int: &Integer) {
+impl Hash<Integer, U256> for Compute {
+	fn set_nonce(&mut self, int: &Integer) {
 		self.nonce = bigint_u256(int);
 	}
+
+	fn get_nonce(&self) -> U256 { self.nonce.clone()}
 
 	fn hash_integer(&self) -> Integer {
 		// digest nonce by hashing with header data.
@@ -138,10 +164,10 @@ impl Mapping<Integer> for State<Integer> {
 	}
 }
 
-impl CycleFinding<Integer> for State<Integer> {
+impl CycleFinding<Integer, U256> for State<Integer> {
 	/// Single Step Transition between states calculating with hashable data.
-	fn transit<C: Hash<Integer>>(self, hashable: &mut C) -> MapResult<State<Integer>> {
-		hashable.update_nonce(&self.work);
+	fn transit<C: Hash<Integer, U256>>(self, hashable: &mut C) -> MapResult<State<Integer>> {
+		hashable.set_nonce(&self.work);
 		let raw_int = hashable.hash_integer();
 		let hash_i = raw_int.div_rem_euc(self.pubkey.p.clone()).1;
 		let work = self.func_f(&hash_i, &self.work)?;
@@ -194,7 +220,7 @@ impl SolutionVerifier {
 	}
 
 	/// Verify the validation of solutions and
-	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey<Integer>, header: &Header) -> bool {
+	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey<Integer>, header: &Compute) -> bool {
 		let y_1 = self.derive(&solutions.0, &pubkey);
 		let y_2 =  self.derive(&solutions.1, &pubkey);
 		// if solutions are valid, verify the hash of nonce.
@@ -206,8 +232,8 @@ impl SolutionVerifier {
 	}
 }
 
-/// A minimal PoW algorithm that uses Sha3 hashing.
-/// Difficulty is fixed at 1_000_000
+/// A minimal PoW algorithm that uses pollard rho method.
+/// Difficulty is fixed at 32 bit long uint.
 #[derive(Clone)]
 pub struct MinimalCapsuleAlgorithm;
 
@@ -235,65 +261,50 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 		};
 
 		// Make sure the provided work actually comes from the correct pre_hash
-		let header = Header {
+		let header = Compute {
 			difficulty,
 			pre_hash: *pre_hash,
 			nonce: seal.nonce,
 		};
-
-
-		if let Some(digest) = _pre_digest {
-			let coded_key = digest.to_owned();
-			let raw_key = RawPublicKey::decode(&mut coded_key.as_slice()).unwrap();
-			let pubkey = PublicKey::<Integer>::from_raw(raw_key);
-			let verifier = SolutionVerifier;
-			let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
-							 Solution::<Integer>::from_u256(&seal.solutions.1));
-			if verifier.verify(&solutions, &pubkey, &header) {
-				return Ok(true);
-			}
+		let raw_key = seal.pubkey;
+		let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+		let verifier = SolutionVerifier;
+		let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
+						 Solution::<Integer>::from_u256(&seal.solutions.1));
+		if verifier.verify(&solutions, &pubkey, &header) {
+			return Ok(true);
 		}
 
 		Ok(false)
 	}
 }
 
-
+fn pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: PublicKey<Integer>, compute: &mut C, seed: Integer) -> Option<Solutions<Integer>> {
+	// generate initial states.
+	let mut state_1 = State::<Integer>::from_pub_key(pubkey, seed);
+	let mut state_2 = state_1.clone();
+	let mut compute_2 = compute.clone();
+	let mut i = Integer::ZERO;
+	let n = state_1.solution.n.clone();
+	while &i < &n {
+		state_1 = state_1.transit(compute).unwrap();
+		state_2 = state_2.transit(&mut compute_2).unwrap().transit(&mut compute_2).unwrap();
+		if &state_1.work == &state_2.work {
+			if &state_1.solution != &state_2.solution {
+				return Some((state_1.solution, state_2.solution));
+			}
+			return None;
+		}
+		i += 1;
+	}
+	None
+}
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::utils::eqs_solvers;
 	use rug::Integer;
-
-	fn pollard_rho(pubkey: PublicKey<Integer>, seed: Integer) -> Option<Integer> {
-		// generate initial states.
-		let mut state_1 = State::<Integer>::from_pub_key(pubkey, seed);
-		let mut state_2 = state_1.clone();
-		let mut header_1 = Header {
-			difficulty: 32u128,
-			pre_hash: H256::from([1u8; 32]),
-			nonce: U256::from(0i32),
-		};
-		let mut header_2 = header_1.clone();
-		let mut i = Integer::ZERO;
-		let n = state_1.solution.n.clone();
-		while &i < &n {
-			state_1 = state_1.transit(&mut header_1).unwrap();
-			state_2 = state_2.transit(&mut header_2).unwrap().transit(&mut header_2).unwrap();
-			if &state_1.work == &state_2.work && &state_1.solution != &state_2.solution {
-				return eqs_solvers(
-					&state_1.solution.a,
-					&state_1.solution.b,
-					&state_2.solution.a,
-					&state_2.solution.b,
-					&state_1.solution.n,
-				)
-			}
-			i += 1;
-		}
-		None
-	}
 
 	#[test]
 	fn try_pollard_rho() {
@@ -307,16 +318,30 @@ mod tests {
 		let mut loop_count = 0;
 		let limit = 10;
 		let mut seed = Integer::from(1);
+		let mut compute = Compute {
+			difficulty: 32u128,
+			pre_hash: H256::from([1u8; 32]),
+			nonce: U256::from(0i32),
+		};
 		loop {
-			if let Some(key) = pollard_rho(pubkey.clone(), seed.clone()){
-				let validate = Integer::from(pubkey.g.pow_mod_ref(&key, &pubkey.p).unwrap());
-				assert_eq!(&validate, &pubkey.h, "The found key {} is not the original key {}", key, num);
-				return
+			if let Some(solutions) = pollard_rho(pubkey.clone(), &mut compute,seed.clone()){
+				if let Some(key) = eqs_solvers(
+					&solutions.0.a,
+					&solutions.0.b,
+					&solutions.1.a,
+					&solutions.1.b,
+					&solutions.1.n){
+					let validate = Integer::from(pubkey.g.pow_mod_ref(&key, &pubkey.p).unwrap());
+					assert_eq!(&validate, &pubkey.h, "The found key {} is not the original key {}", key, num);
+					return
+				} else {
+					panic!("Failed to derive private key!")
+				}
 			} else if loop_count < limit {
 				loop_count += 1;
 				seed += 1;
 			} else {
-				panic!("Cannot find key!")
+				panic!("Cannot find private key!")
 			}
 		}
 	}

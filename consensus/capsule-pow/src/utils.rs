@@ -33,6 +33,7 @@ pub fn u256_bigint(unsigned: &U256) -> Integer {
 }
 
 /// Derive private key from a pair of collided solutions.
+#[allow(dead_code)]
 pub fn eqs_solvers(
     a1: &Integer,
     b1: &Integer,

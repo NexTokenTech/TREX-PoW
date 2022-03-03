@@ -2,15 +2,17 @@
 
 use capsule_runtime::{self, opaque::Block, RuntimeApi};
 use futures::executor::block_on;
-use sc_client_api::ExecutorProvider;
+use sc_client_api::{Backend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{
 	error::Error as ServiceError, Configuration, PartialComponents, TaskManager, DEFAULT_GROUP_NAME,
 };
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sha3pow::{hash_meets_difficulty, Compute, MinimalSha3Algorithm};
 use sp_core::{Decode, Encode, U256};
 use std::{sync::Arc, thread, time::Duration};
+use sp_blockchain::HeaderBackend;
+use sp_runtime::generic::BlockId;
+use capsule_pow::{Seal, Compute, MinimalCapsuleAlgorithm};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -55,7 +57,7 @@ pub fn new_partial(
 				Arc<FullClient>,
 				FullClient,
 				FullSelectChain,
-				MinimalSha3Algorithm,
+				MinimalCapsuleAlgorithm,
 				impl sp_consensus::CanAuthorWith<Block>,
 				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
 			>,
@@ -64,11 +66,7 @@ pub fn new_partial(
 	>,
 	ServiceError,
 > {
-	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
-		config.wasm_method,
-		config.default_heap_pages,
-		config.max_runtime_instances,
-	);
+	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(config.wasm_method, config.default_heap_pages, config.max_runtime_instances, config.runtime_cache_size);
 
 	let telemetry = config
 		.telemetry_endpoints
@@ -109,7 +107,7 @@ pub fn new_partial(
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
 		Arc::clone(&client),
-		sha3pow::MinimalSha3Algorithm,
+		MinimalCapsuleAlgorithm,
 		0, // check inherent starting at block 0
 		select_chain.clone(),
 		|_parent, ()| async {
@@ -125,7 +123,7 @@ pub fn new_partial(
 	let import_queue = sc_consensus_pow::import_queue(
 		Box::new(pow_block_import.clone()),
 		None,
-		sha3pow::MinimalSha3Algorithm,
+		MinimalCapsuleAlgorithm,
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 	)?;
@@ -199,7 +197,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				Box::new(pow_block_import),
 				Arc::clone(&client),
 				select_chain,
-				MinimalSha3Algorithm,
+				MinimalCapsuleAlgorithm,
 				proposer,
 				Arc::clone(&network),
 				Arc::clone(&network),
@@ -207,11 +205,8 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				None,
 				// For block production we want to provide our inherent data provider
 				|_parent, ()| async {
-					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
 					let data_1 = cp_inherent::InherentDataProvider::from_default_value();
-
-					Ok((timestamp,data_1))
+					Ok(data_1)
 				},
 				// time to wait for a new block before starting to mine a new one
 				Duration::from_secs(30),
@@ -227,33 +222,50 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 			);
 
 			// Start Mining
-			let mut nonce: U256 = U256::from(0i32);
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
-			thread::spawn(move || loop {
-				let worker = Arc::clone(&worker);
-				let metadata = worker.metadata();
-				if let Some(metadata) = metadata {
-					let compute = Compute {
-						difficulty: metadata.difficulty,
-						pre_hash: metadata.pre_hash,
-						nonce,
-					};
-					let seal = compute.compute();
-					//TODO: print nonce,maybe difficulty is to high?
-					if hash_meets_difficulty(&seal.work, seal.difficulty) {
-						nonce = U256::from(0i32);
-						// blocking on the block import,
-						// since the Mutex cannot be sent to another thread.
-						block_on(worker.submit(seal.encode()));
-					} else {
-						nonce = nonce.saturating_add(U256::from(1i32));
-						if nonce == U256::MAX {
-							nonce = U256::from(0i32);
+			let current_backend = backend.clone();
+			thread::spawn(move || {
+				// get current pubkey from current block header.
+				let blockchain = current_backend.blockchain();
+				let find_seal = || -> Option<Seal> {
+					let best_hash = blockchain.info().best_hash;
+					if let Some(header) = blockchain.header(BlockId::Hash(best_hash)).unwrap(){
+						let mut digest = header.digest;
+						while let Some(item) = digest.pop() {
+							if let Some(raw_seal) = item.as_seal(){
+								let mut coded_seal = raw_seal.1;
+								return Some(Seal::decode(&mut coded_seal).unwrap());
+							}
 						}
 					}
-				} else {
-					thread::sleep(Duration::new(6, 0));
+					None
+				};
+				// WARNING: do not use 0 as initial seed.
+				let mut seed = U256::from(1i32);
+				loop {
+					let worker = Arc::clone(&worker);
+					let metadata = worker.metadata();
+					let seal = find_seal();
+					if let (Some(metadata), Some(seal)) = (metadata, seal) {
+						let mut compute = Compute {
+							difficulty: metadata.difficulty,
+							pre_hash: metadata.pre_hash,
+							nonce: U256::from(0i32),
+						};
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, seed){
+							// Found a new seal, reset the mining seed.
+							seed = U256::from(1i32);
+							block_on(worker.submit(new_seal.encode()));
+						} else {
+							seed = seed.saturating_add(U256::from(1i32));
+							if seed == U256::MAX {
+								seed = U256::from(0i32);
+							}
+						}
+					} else {
+						thread::sleep(Duration::new(1, 0));
+					}
 				}
 			});
 		}
