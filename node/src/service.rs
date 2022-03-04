@@ -12,7 +12,8 @@ use sp_core::{Decode, Encode, U256};
 use std::{sync::Arc, thread, time::Duration};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::generic::BlockId;
-use capsule_pow::{Seal, Compute, MinimalCapsuleAlgorithm};
+use capsule_pow::{Seal, Compute, MinimalCapsuleAlgorithm, genesis};
+use log::*;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -112,10 +113,8 @@ pub fn new_partial(
 		select_chain.clone(),
 		|_parent, ()| async {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-
-			let data_1 = cp_inherent::InherentDataProvider::from_default_value();
-
-			Ok((timestamp,data_1))
+			let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
+			Ok((timestamp,capsule_data))
 		},
 		can_author_with,
 	);
@@ -205,8 +204,9 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				None,
 				// For block production we want to provide our inherent data provider
 				|_parent, ()| async {
-					let data_1 = cp_inherent::InherentDataProvider::from_default_value();
-					Ok(data_1)
+					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+					let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
+					Ok((timestamp, capsule_data))
 				},
 				// time to wait for a new block before starting to mine a new one
 				Duration::from_secs(30),
@@ -229,7 +229,14 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
 				let find_seal = || -> Option<Seal> {
-					let best_hash = blockchain.info().best_hash;
+					let chain_info = blockchain.info();
+					let best_hash = chain_info.best_hash;
+					let best_num = chain_info.best_number;
+					// info!("Current best block number: {}", best_num);
+					if best_num == 0 {
+						// genesis block does not have a a header, need to create a artificial seal.
+						return Some(genesis::genesis_seal());
+					}
 					if let Some(header) = blockchain.header(BlockId::Hash(best_hash)).unwrap(){
 						let mut digest = header.digest;
 						while let Some(item) = digest.pop() {
@@ -248,6 +255,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 					let metadata = worker.metadata();
 					let seal = find_seal();
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
+						// info!("Found seal!");
 						let mut compute = Compute {
 							difficulty: metadata.difficulty,
 							pre_hash: metadata.pre_hash,
@@ -264,6 +272,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 							}
 						}
 					} else {
+						// info!("Not found seal or metadata!");
 						thread::sleep(Duration::new(1, 0));
 					}
 				}
