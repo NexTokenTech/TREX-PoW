@@ -23,6 +23,7 @@ pub fn dev_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 		None,
+		None,
 	))
 }
 
@@ -54,6 +55,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 			)
 		},
 		vec![],
+		None,
 		None,
 		None,
 		None,

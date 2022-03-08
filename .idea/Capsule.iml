@@ -6,6 +6,9 @@
       <sourceFolder url="file://$MODULE_DIR$/pallets/template/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/runtime/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/consensus/sha3pow/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/primitives/runtime/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/primitives/mining/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/consensus/capsule-pow/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/capsule-storage/rpc/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/capsule-storage/runtime-api/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/capsule-storage/src" isTestSource="false" />

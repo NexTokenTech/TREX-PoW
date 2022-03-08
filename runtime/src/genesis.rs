@@ -51,7 +51,7 @@ pub fn testnet_genesis(
                 .map(|k| (k, 1 << 60))
                 .collect(),
         },
-        sudo: SudoConfig { key: root_key },
+        sudo: SudoConfig { key: Some(root_key) },
         transaction_payment: TransactionPaymentConfig {}
     }
 }
