@@ -245,6 +245,11 @@ impl capsule_storage::Config for Runtime {
 	type Event = Event;
 }
 
+impl predict_transaction::Config for Runtime {
+	type Event = Event;
+	type WeightInfo = predict_transaction::weightsinfo::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime where
@@ -261,6 +266,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		CapsuleStorage: capsule_storage,
+		PredictTransaction: predict_transaction
 	}
 );
 
@@ -406,6 +412,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_balances, Balances);
 			list_benchmark!(list, extra, pallet_timestamp, Timestamp);
 			list_benchmark!(list, extra, pallet_template, TemplateModule);
+			list_benchmark!(list, extra, predict_transaction, PredictTransaction);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -444,6 +451,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 			add_benchmark!(params, batches, pallet_template, TemplateModule);
+			add_benchmark!(params, batches, predict_transaction, PredictTransaction);
 
 			Ok(batches)
 		}
