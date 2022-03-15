@@ -73,7 +73,7 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		/// #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		#[pallet::weight(T::WeightInfo::send_predcit())]
-		pub fn capsule_send(origin: OriginFor<T>, message: Vec<u8>) -> DispatchResult {
+		pub fn submit_capsule(origin: OriginFor<T>, message: Vec<u8>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
