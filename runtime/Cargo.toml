@@ -48,9 +48,9 @@ hex-literal = { version = "0.3.4", optional = true }
 pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
 
 # Local Pallet for Capsule Storage
-capsule-storage = { default-features = false, path = "../pallets/capsule-storage" }
-capsule-storage-runtime-api = { default-features = false, path = "../pallets/capsule-storage/runtime-api" }
-predict-transaction = { default-features = false, path = "../pallets/predict-transaction" }
+pallet-storage = { default-features = false, path = "../pallets/storage" }
+pallet-storage-runtime-api = { default-features = false, path = "../pallets/storage/runtime-api" }
+pallet-capsule = { default-features = false, path = "../pallets/capsule" }
 #getrandom = { version = "0.2", features = ["js"] }
 
 [build-dependencies]
@@ -82,9 +82,9 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
-	"capsule-storage/std",
-	"capsule-storage-runtime-api/std",
-	"predict-transaction/std"
+	"pallet-storage/std",
+	"pallet-storage-runtime-api/std",
+	"pallet-capsule/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -96,5 +96,5 @@ runtime-benchmarks = [
 	"pallet-template/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"predict-transaction/runtime-benchmarks"
+	"pallet-capsule/runtime-benchmarks"
 ]

@@ -4,8 +4,8 @@
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
-pub mod weightsinfo;
-pub use weightsinfo::WeightInfo;
+pub mod weights;
+pub use weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -21,7 +21,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-    use scale_info::prelude::vec::Vec;
+	use sp_std::vec::Vec;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -39,11 +39,11 @@ pub mod pallet {
 
 	// The pallet's runtime storage items.
 	// https://docs.substrate.io/v3/runtime/storage
-	#[pallet::storage]
-	#[pallet::getter(fn something)]
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
-	pub type PredictStorage<T> = StorageValue<_, Vec<u8>>;
+	#[pallet::storage]
+	#[pallet::getter(fn something)]
+	pub type CapsuleStorage<T> = StorageValue<_, Vec<u8>>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -52,7 +52,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
-		PredictTransaction(Vec<u8>, T::AccountId),
+		CapsuleInfoSent(T::AccountId,Vec<u8>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -61,7 +61,7 @@ pub mod pallet {
 		/// Error names should be descriptive.
 		NoneValue,
 		/// Errors should have helpful documentation associated with them.
-		PredictTransactionOverflow,
+		CapsuleInfoSentOverflow,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -73,38 +73,19 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		/// #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		#[pallet::weight(T::WeightInfo::send_predcit())]
-		pub fn send_predcit(origin: OriginFor<T>, predict_content: Vec<u8>) -> DispatchResult {
+		pub fn capsule_send(origin: OriginFor<T>, message: Vec<u8>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
 			let who = ensure_signed(origin)?;
 
 			// Update storage.
-			<PredictStorage<T>>::put(&predict_content);
+			<CapsuleStorage<T>>::put(&message);
 
 			// Emit an event.
-			Self::deposit_event(Event::PredictTransaction(predict_content, who));
+			Self::deposit_event(Event::CapsuleInfoSent(who, message));
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
-		}
-
-		/// An example dispatchable that may throw a custom error.
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1))]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-			// Read a value from storage.
-			match <PredictStorage<T>>::get() {
-				// Return an error if the value has not been set.
-				None => Err(Error::<T>::NoneValue)?,
-				Some(old) => {
-					// // Increment the value read from storage; will error in the event of overflow.
-					// let new = old.checked_add(1).ok_or(Error::<T>::PredictTransactionOverflow)?;
-					// // Update the value in storage with the incremented result.
-					// <PredictStorage<T>>::put(new);
-					Ok(())
-				},
-			}
 		}
 	}
 }

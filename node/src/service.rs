@@ -13,7 +13,6 @@ use std::{sync::Arc, thread, time::Duration};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::generic::BlockId;
 use capsule_pow::{Seal, Compute, MinimalCapsuleAlgorithm, genesis};
-use log::*;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;

@@ -32,7 +32,7 @@
 // --execution=wasm
 // --wasm-execution=compiled
 // --heap-pages=4096
-// --output=./predict-transaction/src/weights_info
+// --output=./capsule/src/weights_info
 // --template=./.maintain/frame-weight-template.hbs
 
 
