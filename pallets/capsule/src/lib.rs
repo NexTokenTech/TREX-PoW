@@ -63,6 +63,16 @@ pub mod pallet {
 		CapsuleInfoSentOverflow,
 	}
 
+	// Struct for holding Capsule information.
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	#[codec(mel_bound())]
+	pub struct InfoData<T: Config> {
+		pub release_block_height: u32,
+		pub message: Vec<u8>,
+		pub from: T::AccountId,
+	}
+
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
@@ -72,17 +82,28 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		/// #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		#[pallet::weight(T::WeightInfo::send_predcit())]
-		pub fn submit_capsule(origin: OriginFor<T>, message: Vec<u8>) -> DispatchResult {
+		pub fn submit_capsule(origin: OriginFor<T>, message: Vec<u8>, rbh: u32) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
 			let who = ensure_signed(origin)?;
 
+			//construct InfoData Struct for CapsuleStorage
+			let owner = who.clone();
+			let capsule_info = message.clone();
+			let info_data = InfoData::<T>{
+				release_block_height:rbh,
+				message:capsule_info,
+				from:owner
+			};
+
+			//encode InfoData instance to vec<u8>
+			let info_byte_data = info_data.encode();
 			// Update storage.
-			<CapsuleStorage<T>>::put(&message);
+			<CapsuleStorage<T>>::put(&info_byte_data);
 
 			// Emit an event.
-			Self::deposit_event(Event::CapsuleInfoSent(who, message));
+			Self::deposit_event(Event::CapsuleInfoSent(who, info_byte_data));
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
