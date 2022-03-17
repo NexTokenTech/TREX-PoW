@@ -5,7 +5,7 @@
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 pub mod weights;
-pub use weights::WeightInfo;
+pub use weights::CapsuleWeight;
 
 #[cfg(test)]
 mod mock;
@@ -30,7 +30,7 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// Weight information for extrinsics in this pallet.
-		type WeightInfo: WeightInfo;
+		type CapsuleWeight: CapsuleWeight;
 	}
 
 	#[pallet::pallet]
@@ -50,8 +50,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Capsule Info Send Event
-		CapsuleInfoSent(T::AccountId,Vec<u8>),
+		/// Capsule Data Send Event
+		CapsuleDataSent(T::AccountId,Vec<u8>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -67,7 +67,7 @@ pub mod pallet {
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	#[codec(mel_bound())]
-	pub struct InfoData<T: Config> {
+	pub struct CapsuleData<T: Config> {
 		pub release_block_height: u32,
 		pub message: Vec<u8>,
 		pub from: T::AccountId,
@@ -81,8 +81,8 @@ pub mod pallet {
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		/// #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		#[pallet::weight(T::WeightInfo::send_predcit())]
-		pub fn submit_capsule(origin: OriginFor<T>, message: Vec<u8>, rbh: u32) -> DispatchResult {
+		#[pallet::weight(T::CapsuleWeight::send_capsule_data())]
+		pub fn send_capsule_data(origin: OriginFor<T>, _from: T::AccountId, message: Vec<u8>, release_block_height: u32) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
@@ -90,20 +90,20 @@ pub mod pallet {
 
 			//construct InfoData Struct for CapsuleStorage
 			let owner = who.clone();
-			let capsule_info = message.clone();
-			let info_data = InfoData::<T>{
-				release_block_height:rbh,
-				message:capsule_info,
+			let capsule_message = message.clone();
+			let capsule_data = CapsuleData::<T>{
+				release_block_height,
+				message:capsule_message,
 				from:owner
 			};
 
 			//encode InfoData instance to vec<u8>
-			let info_byte_data = info_data.encode();
+			let capsule_byte_data = capsule_data.encode();
 			// Update storage.
-			<CapsuleStorage<T>>::put(&info_byte_data);
+			<CapsuleStorage<T>>::put(&capsule_byte_data);
 
 			// Emit an event.
-			Self::deposit_event(Event::CapsuleInfoSent(who, info_byte_data));
+			Self::deposit_event(Event::CapsuleDataSent(who, capsule_byte_data));
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}

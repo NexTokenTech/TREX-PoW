@@ -44,15 +44,15 @@ use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_balances.
-pub trait WeightInfo {
-    fn send_predcit() -> Weight;
+pub trait CapsuleWeight {
+    fn send_capsule_data() -> Weight;
 }
 
 /// Weights for pallet_balances using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+impl<T: frame_system::Config> CapsuleWeight for SubstrateWeight<T> {
     // Storage: System Account (r:1 w:1)
-    fn send_predcit() -> Weight {
+    fn send_capsule_data() -> Weight {
         (70_952_000 as Weight)
             .saturating_add(T::DbWeight::get().reads(1 as Weight))
             .saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -60,9 +60,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 }
 
 // For backwards compatibility and tests
-impl WeightInfo for () {
+impl CapsuleWeight for () {
     // Storage: System Account (r:1 w:1)
-    fn send_predcit() -> Weight {
+    fn send_capsule_data() -> Weight {
         (70_952_000 as Weight)
             .saturating_add(RocksDbWeight::get().reads(1 as Weight))
             .saturating_add(RocksDbWeight::get().writes(1 as Weight))

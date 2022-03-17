@@ -247,7 +247,7 @@ impl pallet_storage::Config for Runtime {
 
 impl pallet_capsule::Config for Runtime {
 	type Event = Event;
-	type WeightInfo = pallet_capsule::weights::SubstrateWeight<Runtime>;
+	type CapsuleWeight = pallet_capsule::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
