@@ -65,8 +65,8 @@ frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/pari
 capsule-pow = {path = '../consensus/capsule-pow'}
 capsule-runtime = { path = "../runtime" }
 # custom RPC call Runtime API infered capsule packages
-capsule-storage-rpc = { path = "../pallets/capsule-storage/rpc" }
-capsule-storage-runtime-api = { path = "../pallets/capsule-storage/runtime-api" }
+pallet-storage-rpc = { path = "../pallets/storage/rpc" }
+pallet-storage-runtime-api = { path = "../pallets/storage/runtime-api" }
 # custom inherent package
 cp-inherent = { path = "../primitives/consensus/cp_provider"}
 

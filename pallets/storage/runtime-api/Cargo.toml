@@ -1,5 +1,5 @@
 [package]
-name = "capsule-storage-runtime-api"
+name = "pallet-storage-runtime-api"
 version = "4.0.0-dev"
 authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
 edition = "2021"

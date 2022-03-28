@@ -6,7 +6,7 @@ use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
-use capsule_storage_runtime_api::SumStorageApi as SumStorageRuntimeApi;
+use pallet_storage_runtime_api::SumStorageApi as SumStorageRuntimeApi;
 
 #[rpc]
 pub trait SumStorageApi<BlockHash> {

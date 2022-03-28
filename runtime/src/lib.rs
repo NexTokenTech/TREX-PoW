@@ -241,8 +241,13 @@ impl pallet_template::Config for Runtime {
 }
 
 // ---------------------- Recipe Pallet Configurations ----------------------
-impl capsule_storage::Config for Runtime {
+impl pallet_storage::Config for Runtime {
 	type Event = Event;
+}
+
+impl pallet_capsule::Config for Runtime {
+	type Event = Event;
+	type CapsuleWeight = pallet_capsule::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -260,7 +265,8 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
-		CapsuleStorage: capsule_storage,
+		StorageModule: pallet_storage,
+		CapsuleModule: pallet_capsule
 	}
 );
 
@@ -292,9 +298,9 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
-	impl capsule_storage_runtime_api::SumStorageApi<Block> for Runtime{
+	impl pallet_storage_runtime_api::SumStorageApi<Block> for Runtime{
 		fn get_sum() -> u32{
-			CapsuleStorage::get_sum()
+			StorageModule::get_sum()
 		}
 	}
 
@@ -406,6 +412,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_balances, Balances);
 			list_benchmark!(list, extra, pallet_timestamp, Timestamp);
 			list_benchmark!(list, extra, pallet_template, TemplateModule);
+			list_benchmark!(list, extra, pallet_capsule, CapsuleModule);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -444,6 +451,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 			add_benchmark!(params, batches, pallet_template, TemplateModule);
+			add_benchmark!(params, batches, pallet_capsule, CapsuleModule);
 
 			Ok(batches)
 		}
