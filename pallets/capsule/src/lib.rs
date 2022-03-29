@@ -68,8 +68,7 @@ pub mod pallet {
 	#[scale_info(skip_type_params(T))]
 	#[codec(mel_bound())]
 	pub struct CapsuleData<T: Config> {
-		pub release_block_height: u32,
-		pub message: Vec<u8>,
+		pub cipher_list: Vec<u8>,
 		pub from: T::AccountId,
 	}
 
@@ -82,7 +81,7 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		/// #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		#[pallet::weight(T::CapsuleWeight::send_capsule_data())]
-		pub fn send_capsule_data(origin: OriginFor<T>, _from: T::AccountId, message: Vec<u8>, release_block_height: u32) -> DispatchResult {
+		pub fn send_capsule_data(origin: OriginFor<T>, _from: T::AccountId, cipher_list: Vec<u8>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/v3/runtime/origins
@@ -90,10 +89,9 @@ pub mod pallet {
 
 			//construct InfoData Struct for CapsuleStorage
 			let owner = who.clone();
-			let capsule_message = message.clone();
+			let ciphers = cipher_list.clone();
 			let capsule_data = CapsuleData::<T>{
-				release_block_height,
-				message:capsule_message,
+				cipher_list:ciphers,
 				from:owner
 			};
 
