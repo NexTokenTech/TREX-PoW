@@ -114,3 +114,7 @@ let hash = api
 ``` 
 
 For more advanced usage, which can wait for block inclusion and return any events triggered by the extrinsic.
+
+#### 8.Visual test
+
+https://polkadot.js.org/apps/#/explorer
