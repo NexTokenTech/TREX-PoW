@@ -33,7 +33,7 @@
 // --wasm-execution=compiled
 // --heap-pages=4096
 // --output=./capsule/src/weights_info
-// --template=./.maintain/frame-weight-template.hbs
+// --difficulty=./.maintain/frame-weight-difficulty.hbs
 
 
 #![cfg_attr(rustfmt, rustfmt_skip)]

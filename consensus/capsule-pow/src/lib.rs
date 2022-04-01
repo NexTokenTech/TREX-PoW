@@ -1,16 +1,18 @@
 mod generic;
 mod utils;
 pub mod genesis;
-
+use sp_api::ProvideRuntimeApi;
+use std::sync::Arc;
 use elgamal_wasm::generic::PublicKey;
 use elgamal_wasm::{KeyGenerator, RawPublicKey};
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sc_consensus_pow::{Error, PowAlgorithm};
 use sha2::{Digest, Sha256};
-use sp_consensus_pow::Seal as RawSeal;
+use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use codec::{Encode, Decode};
+use cp_constants::{Difficulty};
 
 // local packages.
 pub use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State, Solutions};
@@ -23,7 +25,7 @@ const BIG_INT_0: Integer = Integer::ZERO;
 /// `RawSeal` type.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Seal {
-	pub difficulty: u128,
+	pub difficulty: Difficulty,
 	pub pubkey: RawPublicKey,
 	pub solutions: Solutions<U256>,
 	pub nonce: U256,
@@ -56,7 +58,7 @@ impl Seal {
 /// compute method will compute the hash and return the seal.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Compute {
-	pub difficulty: u128,
+	pub difficulty: Difficulty,
 	pub pre_hash: H256,
 	pub nonce: U256,
 }
@@ -234,17 +236,17 @@ impl SolutionVerifier {
 }
 
 /// A minimal PoW algorithm that uses pollard rho method.
-/// Difficulty is fixed at 32 bit long uint.
+/// Difficulty is fixed at 48 bit long uint.
 #[derive(Clone)]
 pub struct MinimalCapsuleAlgorithm;
 
 // Here we implement the minimal Capsule Pow Algorithm trait
 impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
-	type Difficulty = u128;
+	type Difficulty = Difficulty;
 
 	fn difficulty(&self, _parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
 		// Fixed difficulty hardcoded here
-		Ok(32u128)
+		Ok(48 as Difficulty)
 	}
 
 	fn verify(
@@ -320,7 +322,7 @@ mod tests {
 		let limit = 10;
 		let mut seed = Integer::from(1);
 		let mut compute = Compute {
-			difficulty: 32u128,
+			difficulty: 48 as Difficulty,
 			pre_hash: H256::from([1u8; 32]),
 			nonce: U256::from(0i32),
 		};

@@ -1,4 +1,4 @@
-use super::{AccountId, BalancesConfig, GenesisConfig, Signature, SudoConfig, SystemConfig, TransactionPaymentConfig};
+use super::{AccountId, BalancesConfig, DifficultyModuleConfig, GenesisConfig, Signature, SudoConfig, SystemConfig, TransactionPaymentConfig};
 use sp_core::{sr25519, Pair};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -43,6 +43,9 @@ pub fn testnet_genesis(
     GenesisConfig {
         system: SystemConfig {
             code: wasm_binary.to_vec()
+        },
+        difficulty_module: DifficultyModuleConfig {
+            initial_difficulty: 48u128
         },
         balances: BalancesConfig {
             balances: endowed_accounts

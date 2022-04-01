@@ -691,6 +691,7 @@ dependencies = [
 name = "capsule-pow"
 version = "0.1.0"
 dependencies = [
+ "cp-constants",
  "elgamal_wasm",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -707,6 +708,7 @@ dependencies = [
 name = "capsule-runtime"
 version = "4.0.0-dev"
 dependencies = [
+ "cp-constants",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -716,11 +718,11 @@ dependencies = [
  "hex-literal",
  "pallet-balances",
  "pallet-capsule",
+ "pallet-difficulty",
  "pallet-randomness-collective-flip",
  "pallet-storage",
  "pallet-storage-runtime-api",
  "pallet-sudo",
- "pallet-template",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -935,6 +937,10 @@ name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
+
+[[package]]
+name = "cp-constants"
+version = "0.1.0"
 
 [[package]]
 name = "cp-inherent"
@@ -3755,6 +3761,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-difficulty"
+version = "0.1.0"
+dependencies = [
+ "cp-constants",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 5.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
+ "sp-io",
+ "sp-runtime",
+ "sp-timestamp",
+]
+
+[[package]]
 name = "pallet-randomness-collective-flip"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17#22d40c761a985482f93bbbea5ba4199bdba74f8e"
@@ -3818,20 +3841,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 4.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
-]
-
-[[package]]
-name = "pallet-template"
-version = "4.0.0-dev"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core 5.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
- "sp-io",
- "sp-runtime",
 ]
 
 [[package]]
