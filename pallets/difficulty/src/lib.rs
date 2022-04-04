@@ -81,5 +81,10 @@ pub mod pallet {
 	#[pallet::getter(fn difficulty)]
 	pub type CurrentDifficulty<T> = StorageValue<_, Difficulty>;
 
+	impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T>{
+		fn on_timestamp_set(moment: T::Moment) {
+			todo!()
+		}
+	}
 }
 
