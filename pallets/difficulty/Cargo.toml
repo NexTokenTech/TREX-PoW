@@ -23,11 +23,14 @@ frame-benchmarking = { default-features = false, version = "4.0.0-dev", git = "h
 sp-timestamp = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 pallet-timestamp = { default-features = false, version = "4.0.0-dev",  git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 cp-constants = { path = "../../primitives/constants"}
+sp-runtime = { default-features = false, version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
+sp-std = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
+fast-math = "0.1.1"
 
 [dev-dependencies]
 sp-core = { default-features = false, version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 sp-io = { default-features = false, version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
-sp-runtime = { default-features = false, version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
+#sp-runtime = { default-features = false, version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 
 [features]
 default = ["std"]
@@ -38,6 +41,7 @@ std = [
 	"frame-system/std",
 	"frame-benchmarking/std",
 	"sp-runtime/std",
+	"sp-std/std",
 	"pallet-timestamp/std",
 ]
 

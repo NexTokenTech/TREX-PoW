@@ -6,7 +6,9 @@ pub type Difficulty = u128;
 /// Block interval, in seconds, the network will tune its next_target for.
 pub const BLOCK_TIME_SEC: usize = 60;
 /// Block time interval in milliseconds.
-pub const BLOCK_TIME: usize = BLOCK_TIME_SEC * 1000;
+pub const BLOCK_TIME_MILLISEC: usize = BLOCK_TIME_SEC * 1000;
+/// Slot duration inverval in milliseconds
+pub const SLOT_DURATION:u64 = BLOCK_TIME_MILLISEC as u64;
 
 /// Nominal height for standard time intervals, hour is 60 blocks
 pub const HOUR_HEIGHT: usize = 3600 / BLOCK_TIME_SEC;

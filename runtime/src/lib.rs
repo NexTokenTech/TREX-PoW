@@ -22,7 +22,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
+use cp_constants::Difficulty;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
@@ -33,7 +33,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
-use cp_constants::BLOCK_TIME;
+use cp_constants::{BLOCK_TIME_SEC};//SLOT_DURATION
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -98,15 +98,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	state_version: 1,
 };
-
-/// This determines the average expected block time that we are targeting.
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 1000 * BLOCK_TIME as u64;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -188,7 +179,7 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const MinimumPeriod: u64 = MILLISECS_PER_BLOCK / 2;
+	pub const MinimumPeriod: u64 = 3000;//SLOT_DURATION / 2;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -237,7 +228,7 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TargetBlockTime: u64 = BLOCK_TIME as u64;
+	pub const TargetBlockTime: u64 = BLOCK_TIME_SEC as u64;
 }
 
 /// Configure the pallet-difficulty in pallets/difficulty.
@@ -397,6 +388,24 @@ impl_runtime_apis! {
 			TransactionPayment::query_fee_details(uxt, len)
 		}
 	}
+
+	impl sp_consensus_pow::TimestampApi<Block, u64> for Runtime {
+		fn timestamp() -> u64 {
+			pallet_timestamp::Pallet::<Runtime>::get()
+		}
+	}
+
+	impl sp_consensus_pow::DifficultyApi<Block,Difficulty> for Runtime {
+		fn difficulty() -> Difficulty {
+			pallet_difficulty::Pallet::<Runtime>::difficulty().unwrap()
+		}
+	}
+	//
+	// impl kulupu_primitives::AlgorithmApi<Block> for Runtime {
+	// 	fn identifier() -> [u8; 8] {
+	// 		kulupu_primitives::ALGORITHM_IDENTIFIER_V2
+	// 	}
+	// }
 
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {

@@ -13,6 +13,7 @@ use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use codec::{Encode, Decode};
 use cp_constants::{Difficulty};
+use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
 
 // local packages.
 pub use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State, Solutions};
@@ -53,6 +54,14 @@ impl Seal {
 		}
 	}
 }
+
+/// Determine whether the given hash satisfies the given difficulty.
+/// The test is done by multiplying the two together. If the product
+/// overflows the bounds of U128, then the product (and thus the hash)
+/// was too high.
+// fn hash_meets_difficulty(seal_difficulty: &Difficulty, difficulty: Difficulty) -> bool {
+// 	seal_difficulty == &difficulty
+// }
 
 /// A not-yet-computed attempt to solve the proof of work. Calling the
 /// compute method will compute the hash and return the seal.
@@ -279,6 +288,87 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 		}
 
 		Ok(false)
+	}
+}
+
+/// A complete PoW Algorithm that uses Sha3 hashing.
+/// Needs a reference to the client so it can grab the difficulty from the runtime.
+pub struct CapsuleAlgorithm<C> {
+	client: Arc<C>,
+}
+
+impl<C> CapsuleAlgorithm<C> {
+	pub fn new(client: Arc<C>) -> Self {
+		Self { client }
+	}
+}
+
+// Manually implement clone. Deriving doesn't work because
+// it'll derive impl<C: Clone> Clone for CapsuleAlgorithm<C>. But C in practice isn't Clone.
+impl<C> Clone for CapsuleAlgorithm<C> {
+	fn clone(&self) -> Self {
+		Self::new(self.client.clone())
+	}
+}
+
+// Here we implement the general PowAlgorithm trait for our concrete Sha3Algorithm
+impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
+	where
+		C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
+		C::Api: DifficultyApi<B, Difficulty>,
+{
+	type Difficulty = Difficulty;
+
+	fn difficulty(&self, parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
+		let parent_id = BlockId::<B>::hash(parent);
+		let difficulty_result = self.client
+			.runtime_api()
+			.difficulty(&parent_id)
+			.map_err(|err| {
+				sc_consensus_pow::Error::Environment(format!(
+					"Fetching difficulty from runtime failed: {:?}",
+					err
+				))
+			});
+		difficulty_result
+	}
+
+	fn verify(
+		&self,
+		_parent: &BlockId<B>,
+		pre_hash: &H256,
+		_pre_digest: Option<&[u8]>,
+		seal: &RawSeal,
+		difficulty: Self::Difficulty,
+	) -> Result<bool, Error<B>> {
+		// Try to construct a seal object by decoding the raw seal given
+		let seal = match Seal::decode(&mut &seal[..]) {
+			Ok(seal) => seal,
+			Err(_) => return Ok(false),
+		};
+
+		// TODO:// difficulty verify
+		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
+		// if !hash_meets_difficulty(&seal.difficulty, difficulty) {
+		// 	return Ok(false);
+		// }
+
+		// Make sure the provided work actually comes from the correct pre_hash
+		let header = Compute {
+			difficulty,
+			pre_hash: *pre_hash,
+			nonce: seal.nonce,
+		};
+		let raw_key = seal.pubkey;
+		let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+		let verifier = SolutionVerifier;
+		let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
+						 Solution::<Integer>::from_u256(&seal.solutions.1));
+		if verifier.verify(&solutions, &pubkey, &header) {
+			return Ok(true);
+		}
+
+		Ok(true)
 	}
 }
 
