@@ -3786,6 +3786,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "num-traits",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",

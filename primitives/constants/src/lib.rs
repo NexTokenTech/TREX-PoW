@@ -23,9 +23,9 @@ pub const YEAR_HEIGHT: usize = 52 * WEEK_HEIGHT;
 pub const DIFFICULTY_ADJUST_WINDOW: usize = HOUR_HEIGHT;
 /// Clamp factor to use for difficulty adjustment
 /// Limit value to within this factor of goal
-pub const CLAMP_FACTOR: u128 = 3;
+pub const CLAMP_FACTOR: u128 = 1;
 /// Dampening factor to use for difficulty adjustment
-pub const DIFFICULTY_DAMP_FACTOR: u128 = 59;
+pub const DIFFICULTY_DAMP_FACTOR: u128 = 32;
 /// Minimum difficulty, enforced in diff re-target
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u128 = DIFFICULTY_DAMP_FACTOR;

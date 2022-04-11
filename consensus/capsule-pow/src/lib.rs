@@ -33,12 +33,13 @@ pub struct Seal {
 }
 
 impl Seal {
-	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256>>(&self, compute: &mut C, seed: U256) -> Option<Self>{
+	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256>>(&self, compute: &mut C, difficulty: Difficulty, seed: U256) -> Option<Self>{
 		let seed_int = u256_bigint(&seed);
 		let old_pubkey = &self.pubkey;
 		// generate a new pubkey from existing pubkey with difficulty adjustment.
 		// TODO: difficulty adjustment is not yet implemented.
-		let difficulty = self.difficulty;
+		// let difficulty = self.difficulty;
+		let difficulty = difficulty;
 		let raw_pubkey = old_pubkey.yield_pubkey(difficulty as u32);
 		let pubkey = PublicKey::<Integer>::from_raw(raw_pubkey.clone());
 		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {

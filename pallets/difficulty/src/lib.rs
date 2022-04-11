@@ -6,7 +6,7 @@ use frame_support::{
 };
 use cp_constants::{
 	Difficulty, DIFFICULTY_ADJUST_WINDOW,
-	MIN_DIFFICULTY,DIFFICULTY_DAMP_FACTOR,CLAMP_FACTOR
+	MIN_DIFFICULTY,CLAMP_FACTOR
 };
 pub use pallet::*;
 use sp_std::cmp::{max, min};
@@ -30,8 +30,10 @@ pub fn damp(actual: u128, goal: u128, damp_factor: u128) -> u128 {
 /// limit value to be within some factor from a goal
 pub fn clamp(block_time_target: u128, measured_block_time: u128) -> i128 {
 	// TODO: round function
-	let log2_result = log2((block_time_target / measured_block_time).pow(2) as f32);
-	max(min(log2_result as i32, CLAMP_FACTOR as i32), -(CLAMP_FACTOR as i32)) as i128
+	let log2_resource = (block_time_target / measured_block_time).pow(2);
+	let log2_result = log2(log2_resource as f32);
+	let round_result = log2_result.round();
+	max(min(round_result as i32, CLAMP_FACTOR as i32), -(CLAMP_FACTOR as i32)) as i128
 }
 
 #[frame_support::pallet]
@@ -103,7 +105,7 @@ pub mod pallet {
 			// todo!()
 			let block_time =
 				UniqueSaturatedInto::<u128>::unique_saturated_into(T::TargetBlockTime::get());
-			let block_time_window = DIFFICULTY_ADJUST_WINDOW as u128 * block_time;
+			let block_time_window = block_time * 1000;
 
 			let mut data = PastDifficultiesAndTimestamps::<T>::get();
 
@@ -118,15 +120,15 @@ pub mod pallet {
 			});
 
 			let mut ts_delta = 0;
-			for i in 1..(DIFFICULTY_ADJUST_WINDOW as usize) {
-				let prev: Option<u128> = data[i - 1].map(|d| d.timestamp.unique_saturated_into());
-				let cur: Option<u128> = data[i].map(|d| d.timestamp.unique_saturated_into());
+			let prev: Option<u128> = data[DIFFICULTY_ADJUST_WINDOW-2].map(|d| d.timestamp.unique_saturated_into());
+			let cur: Option<u128> = data[DIFFICULTY_ADJUST_WINDOW-1].map(|d| d.timestamp.unique_saturated_into());
 
-				let delta = match (prev, cur) {
-					(Some(prev), Some(cur)) => cur.saturating_sub(prev),
-					_ => block_time.into(),
-				};
-				ts_delta += delta;
+			let delta = match (prev, cur) {
+				(Some(prev), Some(cur)) => cur.saturating_sub(prev),
+				_ => block_time.into(),
+			};
+			if delta != block_time.into(){
+				ts_delta = delta;
 			}
 
 			if ts_delta == 0 {
@@ -135,14 +137,13 @@ pub mod pallet {
 
 			// adjust time delta toward goal subject to dampening and clamping
 			let adj_ts = clamp(
-				damp(ts_delta, block_time_window, DIFFICULTY_DAMP_FACTOR),
 				block_time_window,
+				ts_delta,
 			);
 			let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT) as i128 + adj_ts;
 			let difficulty_final = difficulty as Difficulty;
 
 			<PastDifficultiesAndTimestamps<T>>::put(data);
-			// <CurrentDifficulty<T>>::put(difficulty_final);
 			<CurrentDifficulty<T>>::put(difficulty_final);
 		}
 	}

@@ -198,7 +198,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				Box::new(pow_block_import),
 				Arc::clone(&client),
 				select_chain,
-				algorithm,
+				algorithm.clone(),
 				proposer,
 				Arc::clone(&network),
 				Arc::clone(&network),
@@ -258,14 +258,14 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 					let seal = find_seal();
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
 						// info!("Found seal!");
-						// TODO: Verify Difficulty Adjust Debug Breakpoints
-						let metadata_clone = metadata.clone().difficulty;
+						// TODO: Need to fetch new difficulty for next block
+						let metadata_difficulty = metadata.clone().difficulty;
 						let mut compute = Compute {
 							difficulty: metadata.difficulty,
 							pre_hash: metadata.pre_hash,
 							nonce: U256::from(0i32),
 						};
-						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, seed){
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, metadata_difficulty, seed){
 							// Found a new seal, reset the mining seed.
 							seed = U256::from(1i32);
 							block_on(worker.submit(new_seal.encode()));
