@@ -227,7 +227,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
 			let current_backend = backend.clone();
-			thread::spawn(move || {
+			thread::spawn(move || loop{
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
 				let find_seal = || -> Option<Seal> {
@@ -252,33 +252,34 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				};
 				// WARNING: do not use 0 as initial seed.
 				let mut seed = U256::from(1i32);
-				loop {
-					let worker = Arc::clone(&worker);
-					let metadata = worker.metadata();
-					let seal = find_seal();
-					if let (Some(metadata), Some(seal)) = (metadata, seal) {
-						// info!("Found seal!");
-						// TODO: Need to fetch new difficulty for next block
-						let metadata_difficulty = metadata.clone().difficulty;
-						let mut compute = Compute {
-							difficulty: metadata.difficulty,
-							pre_hash: metadata.pre_hash,
-							nonce: U256::from(0i32),
-						};
-						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, metadata_difficulty, seed){
-							// Found a new seal, reset the mining seed.
-							seed = U256::from(1i32);
-							block_on(worker.submit(new_seal.encode()));
-						} else {
-							seed = seed.saturating_add(U256::from(1i32));
-							if seed == U256::MAX {
-								seed = U256::from(0i32);
-							}
-						}
+				// loop {
+				//
+				// }
+				let worker = Arc::clone(&worker);
+				let metadata = worker.metadata();
+				let seal = find_seal();
+				if let (Some(metadata), Some(seal)) = (metadata, seal) {
+					// info!("Found seal!");
+					// TODO: Need to fetch new difficulty for next block
+					let metadata_difficulty = metadata.clone().difficulty;
+					let mut compute = Compute {
+						difficulty: metadata.difficulty,
+						pre_hash: metadata.pre_hash,
+						nonce: U256::from(0i32),
+					};
+					if let Some(new_seal) = seal.try_cpu_mining(&mut compute, metadata_difficulty, seed){
+						// Found a new seal, reset the mining seed.
+						seed = U256::from(1i32);
+						block_on(worker.submit(new_seal.encode()));
 					} else {
-						// info!("Not found seal or metadata!");
-						thread::sleep(Duration::new(1, 0));
+						seed = seed.saturating_add(U256::from(1i32));
+						if seed == U256::MAX {
+							seed = U256::from(0i32);
+						}
 					}
+				} else {
+					// info!("Not found seal or metadata!");
+					thread::sleep(Duration::new(1, 0));
 				}
 			});
 		}

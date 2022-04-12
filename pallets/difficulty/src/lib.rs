@@ -1,7 +1,7 @@
 #![feature(associated_type_defaults)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cp_constants::{Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, MIN_DIFFICULTY};
+use cp_constants::{Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, MIN_DIFFICULTY, MAX_DIFFICULTY};
 use fast_math::log2;
 use frame_support::traits::OnTimestampSet;
 use num_traits::float::FloatCore;
@@ -34,9 +34,9 @@ pub fn clamp(block_time_target: u128, measured_block_time: u128) -> i128 {
 
 #[frame_support::pallet]
 pub mod pallet {
+	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use super::*;
 
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, Copy, Eq, PartialEq)]
 	#[scale_info(skip_type_params(T))]
@@ -67,9 +67,7 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
-			GenesisConfig{
-				initial_difficulty: MIN_DIFFICULTY as Difficulty
-			}
+			GenesisConfig { initial_difficulty: MIN_DIFFICULTY as Difficulty }
 		}
 	}
 
@@ -83,10 +81,17 @@ pub mod pallet {
 	type Difficulties<T> = [Option<DifficultyAndTimestamp<T>>; DIFFICULTY_ADJUST_WINDOW];
 
 	#[pallet::type_value]
-	pub fn PastDifficultiesEmpty<T: Config>() -> Difficulties<T::Moment> {[None; DIFFICULTY_ADJUST_WINDOW]}
+	pub fn PastDifficultiesEmpty<T: Config>() -> Difficulties<T::Moment> {
+		[None; DIFFICULTY_ADJUST_WINDOW]
+	}
 
 	#[pallet::storage]
-	pub(super) type PastDifficultiesAndTimestamps<T: Config> = StorageValue<_, [Option<DifficultyAndTimestamp<T::Moment>>; DIFFICULTY_ADJUST_WINDOW], ValueQuery, PastDifficultiesEmpty<T>>;
+	pub(super) type PastDifficultiesAndTimestamps<T: Config> = StorageValue<
+		_,
+		[Option<DifficultyAndTimestamp<T::Moment>>; DIFFICULTY_ADJUST_WINDOW],
+		ValueQuery,
+		PastDifficultiesEmpty<T>,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn difficulty)]
@@ -96,9 +101,8 @@ pub mod pallet {
 	#[pallet::getter(fn initial_difficulty)]
 	pub type InitialDifficulty<T> = StorageValue<_, Difficulty>;
 
-	impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T>{
+	impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		fn on_timestamp_set(moment: T::Moment) {
-			// todo!()
 			let block_time =
 				UniqueSaturatedInto::<u128>::unique_saturated_into(T::TargetBlockTime::get());
 			let block_time_window = block_time * 1000;
@@ -109,21 +113,23 @@ pub mod pallet {
 				data[i - 1] = data[i];
 			}
 
-			const DIFFICULTY_DEFAULT:Difficulty = MIN_DIFFICULTY as Difficulty;
+			const DIFFICULTY_DEFAULT: Difficulty = MIN_DIFFICULTY as Difficulty;
 			data[data.len() - 1] = Some(DifficultyAndTimestamp {
 				timestamp: moment,
 				difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
 			});
 
 			let mut ts_delta = 0;
-			let prev: Option<u128> = data[DIFFICULTY_ADJUST_WINDOW-2].map(|d| d.timestamp.unique_saturated_into());
-			let cur: Option<u128> = data[DIFFICULTY_ADJUST_WINDOW-1].map(|d| d.timestamp.unique_saturated_into());
+			let prev: Option<u128> =
+				data[DIFFICULTY_ADJUST_WINDOW - 2].map(|d| d.timestamp.unique_saturated_into());
+			let cur: Option<u128> =
+				data[DIFFICULTY_ADJUST_WINDOW - 1].map(|d| d.timestamp.unique_saturated_into());
 
 			let delta = match (prev, cur) {
 				(Some(prev), Some(cur)) => cur.saturating_sub(prev),
 				_ => block_time.into(),
 			};
-			if delta != block_time.into(){
+			if delta != block_time.into() {
 				ts_delta = delta;
 			}
 
@@ -131,11 +137,22 @@ pub mod pallet {
 				ts_delta = 1;
 			}
 
+			let mut diff_sum = 0;
+			for i in 0..(DIFFICULTY_ADJUST_WINDOW as usize) {
+				let diff = match data[i].map(|d| d.difficulty) {
+					Some(_) => 1,
+					None => 0,
+				};
+				diff_sum += diff;
+			}
+
 			// adjust time delta toward goal subject to dampening and clamping
-			let adj_ts = clamp(
-				block_time_window,
-				ts_delta,
-			);
+			let mut adj_ts = 0;
+
+			if diff_sum != 1 {
+				adj_ts = clamp(block_time_window, ts_delta);
+			}
+
 			let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT) as i128 + adj_ts;
 			let difficulty_final = difficulty as Difficulty;
 
@@ -144,4 +161,3 @@ pub mod pallet {
 		}
 	}
 }
-

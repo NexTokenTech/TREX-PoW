@@ -25,12 +25,12 @@ pub const DIFFICULTY_ADJUST_WINDOW: usize = HOUR_HEIGHT;
 /// Limit value to within this factor of goal
 pub const CLAMP_FACTOR: u128 = 1;
 /// Dampening factor to use for difficulty adjustment
-pub const DIFFICULTY_DAMP_FACTOR: u128 = 32;
+pub const DIFFICULTY_DAMP_FACTOR: u128 = 39;
 /// Minimum difficulty, enforced in diff re-target
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u128 = DIFFICULTY_DAMP_FACTOR;
 /// Maximum difficulty.
-pub const MAX_DIFFICULTY: u128 = u128::MAX;
+pub const MAX_DIFFICULTY: u128 = 256_u128;//u128::MAX;
 
 /// Value of 1 CAP.
 pub const DOLLARS: u128 = 1_000_000_000_000;
