@@ -1,17 +1,13 @@
 #![feature(associated_type_defaults)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-	traits::{OnTimestampSet},
-};
-use cp_constants::{
-	Difficulty, DIFFICULTY_ADJUST_WINDOW,
-	MIN_DIFFICULTY,CLAMP_FACTOR
-};
-pub use pallet::*;
-use sp_std::cmp::{max, min};
-use sp_runtime::traits::UniqueSaturatedInto;
+use cp_constants::{Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, MIN_DIFFICULTY};
 use fast_math::log2;
+use frame_support::traits::OnTimestampSet;
+use num_traits::float::FloatCore;
+pub use pallet::*;
+use sp_runtime::traits::UniqueSaturatedInto;
+use sp_std::cmp::{max, min};
 
 #[cfg(test)]
 mod mock;
