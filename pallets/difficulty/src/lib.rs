@@ -1,7 +1,10 @@
 #![feature(associated_type_defaults)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use cp_constants::{Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, MIN_DIFFICULTY, MAX_DIFFICULTY};
+use cp_constants::{
+	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, DIFFICULTY_DAMP_FACTOR, MAX_DIFFICULTY,
+	MIN_DIFFICULTY,
+};
 use fast_math::log2;
 use frame_support::traits::OnTimestampSet;
 use num_traits::float::FloatCore;
@@ -94,6 +97,10 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
+	#[pallet::getter(fn difficulty_pointer)]
+	pub type PastDifficultiesAndTimestampsPointer<T> = StorageValue<_, u32>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn difficulty)]
 	pub type CurrentDifficulty<T> = StorageValue<_, Difficulty>;
 
@@ -103,61 +110,74 @@ pub mod pallet {
 
 	impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		fn on_timestamp_set(moment: T::Moment) {
+			const DIFFICULTY_DEFAULT: Difficulty = MIN_DIFFICULTY as Difficulty;
+			// Get target time window size
 			let block_time =
 				UniqueSaturatedInto::<u128>::unique_saturated_into(T::TargetBlockTime::get());
-			let block_time_window = block_time * 1000;
+			let block_time_window = block_time * DIFFICULTY_ADJUST_WINDOW as u128;
 
+			// Get the window history data
 			let mut data = PastDifficultiesAndTimestamps::<T>::get();
 
-			for i in 1..data.len() {
-				data[i - 1] = data[i];
+			// get the window pointer
+			let mut pointer = PastDifficultiesAndTimestampsPointer::<T>::get().unwrap_or(0u32);
+
+			// It's time to adjust the difficulty
+			if pointer == (DIFFICULTY_ADJUST_WINDOW - 1) as u32 {
+				// Set DIFFICULTY_ADJUST_WINDOW last element
+				data[pointer as usize] = Some(DifficultyAndTimestamp {
+					timestamp: moment,
+					difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
+				});
+
+				// Calculates the actual time interval within DIFFICULTY_ADJUST_WINDOW,consider whether to add damped oscillation.
+				let mut ts_delta = 0;
+				for i in 1..(DIFFICULTY_ADJUST_WINDOW as usize) {
+					let prev: Option<u128> =
+						data[i - 1].map(|d| d.timestamp.unique_saturated_into());
+					let cur: Option<u128> = data[i].map(|d| d.timestamp.unique_saturated_into());
+
+					let delta = match (prev, cur) {
+						(Some(prev), Some(cur)) => cur.saturating_sub(prev) / 1000,
+						_ => block_time.into(),
+					};
+					ts_delta += delta;
+				}
+
+				if ts_delta == 0 {
+					ts_delta = 1;
+				}
+
+				// Damping needs to be verified again, first without damping
+				// let damp_value = damp(ts_delta, block_time_window, DIFFICULTY_DAMP_FACTOR);
+
+				// adjust time delta toward goal subject to clamping
+				let adj_ts = clamp(block_time_window, ts_delta);
+
+				// Difficulty adjustment and storage
+				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT) as i128 + adj_ts;
+				let difficulty_final = difficulty as Difficulty;
+
+				// Clear memory after calculation
+				for i in 0..DIFFICULTY_ADJUST_WINDOW - 1 {
+					data[i] = None;
+				}
+				// pointer to zero
+				pointer = 0;
+				//storage
+				<PastDifficultiesAndTimestamps<T>>::put(data);
+				<CurrentDifficulty<T>>::put(difficulty_final);
+				<PastDifficultiesAndTimestampsPointer<T>>::put(pointer);
+			} else {
+				// If the window threshold is not reached, no difficulty adjustment is required
+				data[pointer as usize] = Some(DifficultyAndTimestamp {
+					timestamp: moment,
+					difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
+				});
+				pointer += 1;
+				<PastDifficultiesAndTimestamps<T>>::put(data);
+				<PastDifficultiesAndTimestampsPointer<T>>::put(pointer);
 			}
-
-			const DIFFICULTY_DEFAULT: Difficulty = MIN_DIFFICULTY as Difficulty;
-			data[data.len() - 1] = Some(DifficultyAndTimestamp {
-				timestamp: moment,
-				difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
-			});
-
-			let mut ts_delta = 0;
-			let prev: Option<u128> =
-				data[DIFFICULTY_ADJUST_WINDOW - 2].map(|d| d.timestamp.unique_saturated_into());
-			let cur: Option<u128> =
-				data[DIFFICULTY_ADJUST_WINDOW - 1].map(|d| d.timestamp.unique_saturated_into());
-
-			let delta = match (prev, cur) {
-				(Some(prev), Some(cur)) => cur.saturating_sub(prev),
-				_ => block_time.into(),
-			};
-			if delta != block_time.into() {
-				ts_delta = delta;
-			}
-
-			if ts_delta == 0 {
-				ts_delta = 1;
-			}
-
-			let mut diff_sum = 0;
-			for i in 0..(DIFFICULTY_ADJUST_WINDOW as usize) {
-				let diff = match data[i].map(|d| d.difficulty) {
-					Some(_) => 1,
-					None => 0,
-				};
-				diff_sum += diff;
-			}
-
-			// adjust time delta toward goal subject to dampening and clamping
-			let mut adj_ts = 0;
-
-			if diff_sum != 1 {
-				adj_ts = clamp(block_time_window, ts_delta);
-			}
-
-			let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT) as i128 + adj_ts;
-			let difficulty_final = difficulty as Difficulty;
-
-			<PastDifficultiesAndTimestamps<T>>::put(data);
-			<CurrentDifficulty<T>>::put(difficulty_final);
 		}
 	}
 }
