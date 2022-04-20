@@ -2,7 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cp_constants::{
-	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, DIFFICULTY_DAMP_FACTOR, MAX_DIFFICULTY,
+	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW,
 	MIN_DIFFICULTY,
 };
 use fast_math::log2;
