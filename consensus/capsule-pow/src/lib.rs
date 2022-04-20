@@ -33,12 +33,12 @@ pub struct Seal {
 }
 
 impl Seal {
-	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(&self, compute: &mut C, seed: U256) -> Option<Self>{
+	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(&self, compute: &mut C, seed: U256, pre_pubkey:RawPublicKey) -> Option<Self>{
 		let seed_int = u256_bigint(&seed);
-		let old_pubkey = &self.pubkey;
+		let old_pubkey = pre_pubkey;
 		let difficulty = compute.get_difficulty();
 		let raw_pubkey = old_pubkey.yield_pubkey(difficulty as u32);
-		let pubkey = PublicKey::<Integer>::from_raw(raw_pubkey.clone());
+		let pubkey = PublicKey::<Integer>::from_raw(raw_pubkey);
 		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {
 			// if find the solutions, build a new seal.
 			Some(Seal {

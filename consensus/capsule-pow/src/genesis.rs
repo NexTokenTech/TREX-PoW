@@ -1,18 +1,16 @@
 use crate::{Seal, Solution};
 use elgamal_wasm::RawPublicKey;
 use sp_core::U256;
-use cp_constants::{
-    MIN_DIFFICULTY
-};
+use cp_constants::{Difficulty, MIN_DIFFICULTY};
 
-pub fn genesis_seal() -> Seal {
+pub fn genesis_seal(difficulty:Difficulty) -> Seal {
     let genesis_solution = Solution::<U256> {
         a: U256::from(1i32),
         b: U256::from(1i32),
         n: U256::from(1i32),
     };
     return Seal {
-        difficulty: MIN_DIFFICULTY,
+        difficulty,
         pubkey: RawPublicKey {
             p: U256::from(1i32),
             g: U256::from(1i32),
