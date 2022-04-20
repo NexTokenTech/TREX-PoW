@@ -97,8 +97,7 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn difficulty_pointer)]
-	pub type PastDifficultiesAndTimestampsPointer<T> = StorageValue<_, u32>;
+	pub type CurrentHeight<T> = StorageValue<_, u32>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn difficulty)]
@@ -119,13 +118,13 @@ pub mod pallet {
 			// Get the window history data
 			let mut data = PastDifficultiesAndTimestamps::<T>::get();
 
-			// get the window pointer
-			let mut pointer = PastDifficultiesAndTimestampsPointer::<T>::get().unwrap_or(0u32);
+			// get the window current_height
+			let mut current_height = CurrentHeight::<T>::get().unwrap_or(0u32);
 
 			// It's time to adjust the difficulty
-			if pointer == (DIFFICULTY_ADJUST_WINDOW - 1) as u32 {
+			if current_height == (DIFFICULTY_ADJUST_WINDOW - 1) as u32 {
 				// Set DIFFICULTY_ADJUST_WINDOW last element
-				data[pointer as usize] = Some(DifficultyAndTimestamp {
+				data[current_height as usize] = Some(DifficultyAndTimestamp {
 					timestamp: moment,
 					difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
 				});
@@ -158,25 +157,21 @@ pub mod pallet {
 				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT) as i128 + adj_ts;
 				let difficulty_final = difficulty as Difficulty;
 
-				// Clear memory after calculation
-				for i in 0..DIFFICULTY_ADJUST_WINDOW - 1 {
-					data[i] = None;
-				}
-				// pointer to zero
-				pointer = 0;
+				// current_height to zero
+				current_height = 0;
 				//storage
 				<PastDifficultiesAndTimestamps<T>>::put(data);
 				<CurrentDifficulty<T>>::put(difficulty_final);
-				<PastDifficultiesAndTimestampsPointer<T>>::put(pointer);
+				<CurrentHeight<T>>::put(current_height);
 			} else {
 				// If the window threshold is not reached, no difficulty adjustment is required
-				data[pointer as usize] = Some(DifficultyAndTimestamp {
+				data[current_height as usize] = Some(DifficultyAndTimestamp {
 					timestamp: moment,
 					difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
 				});
-				pointer += 1;
+				current_height += 1;
 				<PastDifficultiesAndTimestamps<T>>::put(data);
-				<PastDifficultiesAndTimestampsPointer<T>>::put(pointer);
+				<CurrentHeight<T>>::put(current_height);
 			}
 		}
 	}
