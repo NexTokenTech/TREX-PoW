@@ -1,6 +1,10 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use capsule_runtime::{self, opaque::Block, RuntimeApi};
+use capsule_pow::genesis::genesis_seal;
+use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
+use capsule_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
+use cp_constants::{Difficulty, KEYCHAIN_MAP_FILE_PATH, MIN_DIFFICULTY, UPDATE_KEY_CHAIN_RANGE};
+use elgamal_wasm::{KeyGenerator, RawPublicKey};
 use futures::executor::block_on;
 use sc_client_api::{Backend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
@@ -8,11 +12,11 @@ use sc_service::{
 	error::Error as ServiceError, Configuration, PartialComponents, TaskManager, DEFAULT_GROUP_NAME,
 };
 use sc_telemetry::{Telemetry, TelemetryWorker};
-use sp_core::{Decode, Encode, U256};
-use std::{sync::Arc, thread, time::Duration};
 use sp_blockchain::HeaderBackend;
+use sp_core::{Decode, Encode, U256};
 use sp_runtime::generic::BlockId;
-use capsule_pow::{Seal, Compute, genesis, CapsuleAlgorithm};
+use std::collections::HashMap;
+use std::{sync::Arc, thread, time::Duration};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -66,7 +70,12 @@ pub fn new_partial(
 	>,
 	ServiceError,
 > {
-	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(config.wasm_method, config.default_heap_pages, config.max_runtime_instances, config.runtime_cache_size);
+	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
+		config.wasm_method,
+		config.default_heap_pages,
+		config.max_runtime_instances,
+		config.runtime_cache_size,
+	);
 
 	let telemetry = config
 		.telemetry_endpoints
@@ -138,6 +147,135 @@ pub fn new_partial(
 		select_chain,
 		other: (pow_block_import, telemetry),
 	})
+}
+pub fn update_keychains_with_difficulty(
+	difficulty: &u128,
+	best_number: BlockNumber,
+) -> RawPublicKey {
+	// cast current difficulty to owned.
+	let current_difficulty = difficulty.to_owned();
+	// create a file instance for write and read.
+	let f = std::fs::OpenOptions::new()
+		.write(true)
+		.create(true)
+		.read(true)
+		.open(KEYCHAIN_MAP_FILE_PATH);
+	// get keychain map from json file.
+	let default_keychain_map: HashMap<Difficulty, HashMap<u32, Vec<u8>>> =
+		HashMap::<Difficulty, HashMap<u32, Vec<u8>>>::new();
+	let mut keychain_map: HashMap<Difficulty, HashMap<u32, Vec<u8>>> = match f {
+		Ok(f_ok) => match serde_json::from_reader(f_ok) {
+			Ok(keychain_map) => keychain_map,
+			Err(_) => default_keychain_map,
+		},
+		Err(_) => default_keychain_map,
+	};
+
+	// Generate pubkey of current difficulty
+	let keychain_map_tuple = handle_pubkey(&mut keychain_map, &difficulty, &best_number);
+	let last_pubkey = keychain_map_tuple.0;
+	let mut keychain_map_final = keychain_map_tuple.1;
+
+	// Generate the pub_key of UPDATE_KEY_CHAIN_RANGE derived from the current difficulty
+	let mut difficulty_list: Vec<Difficulty> = Vec::<Difficulty>::new();
+	for i in 0..UPDATE_KEY_CHAIN_RANGE {
+		let iu128 = i as u128;
+		if i != 0 {
+			if current_difficulty >= iu128 {
+				difficulty_list.push(current_difficulty - iu128);
+			}
+			difficulty_list.push(current_difficulty + iu128);
+		}
+	}
+	for difficulty_tmp in difficulty_list {
+		let keychain_map_tuple = handle_pubkey(&mut keychain_map, &difficulty_tmp, &best_number);
+		keychain_map_final = keychain_map_tuple.1;
+	}
+
+	// new a file instance for overwrite json file.
+	let f = std::fs::OpenOptions::new()
+		.write(true)
+		.create(true)
+		.open(KEYCHAIN_MAP_FILE_PATH);
+	match f {
+		Ok(f_ok) => {
+			// write file using serde
+			serde_json::to_writer_pretty(f_ok, &keychain_map_final);
+		},
+		Err(_) => {},
+	}
+
+	if best_number != 0 {
+		last_pubkey
+	} else {
+		let seal = genesis_seal(current_difficulty);
+		seal.pubkey
+	}
+}
+
+pub fn handle_pubkey(
+	keychain_map: &mut HashMap<Difficulty, HashMap<u32, Vec<u8>>>,
+	difficulty: &Difficulty,
+	best_number: &u32,
+) -> (RawPublicKey, HashMap<Difficulty, HashMap<u32, Vec<u8>>>) {
+	// get difficult and last_number for specified difficulty
+	let mut last_pukey_for_cur_difficulty = keychain_map.get(&difficulty);
+	let last_pubkey = match last_pukey_for_cur_difficulty {
+		Some(last_number_and_difficulty) => {
+			// get last number
+			let mut last_number = 0u32;
+			for item in last_number_and_difficulty.keys() {
+				last_number = item.to_owned();
+				break;
+			}
+			// get last number's pubkey for bytes format
+			let last_pubkey_bytes = last_number_and_difficulty.get(&last_number).unwrap();
+			// decode to RawPublicKey struct
+			let last_pubkey = RawPublicKey::decode(&mut &last_pubkey_bytes[..]).unwrap();
+			// define pubkey for iteration
+			let mut iter_pubkey = last_pubkey;
+			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
+			for _ in last_number..best_number.to_owned() {
+				let next_pubkey = iter_pubkey.yield_pubkey((difficulty.to_owned()) as u32);
+				iter_pubkey = next_pubkey;
+			}
+			// return pubkey
+			iter_pubkey
+		},
+		None => {
+			// Genesis generates pubkey
+			let seal = genesis_seal(difficulty.to_owned());
+			let genesis_pubkey = seal.pubkey.yield_pubkey((difficulty.to_owned()) as u32);
+			// define pubkey for iteration
+			let mut iter_pubkey = genesis_pubkey;
+			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
+			for _ in 1..best_number.to_owned() {
+				let next_pubkey = iter_pubkey.yield_pubkey((difficulty.to_owned()) as u32);
+				iter_pubkey = next_pubkey;
+			}
+			// return pubkey
+			iter_pubkey
+		},
+	};
+
+	// update(mutate or insert) keychain_map
+	if keychain_map.contains_key(&difficulty) {
+		if let Some(keymap) = keychain_map.get_mut(&difficulty) {
+			let mut last_number = 0u32;
+			for item in keymap.keys() {
+				last_number = item.to_owned();
+				break;
+			}
+			let mut keymap_tmp = HashMap::<u32, Vec<u8>>::new();
+			keymap_tmp.insert(best_number.to_owned(), last_pubkey.encode());
+			*keymap = keymap_tmp;
+		}
+	} else {
+		let mut keymap = HashMap::<u32, Vec<u8>>::new();
+		keymap.insert(best_number.to_owned(), last_pubkey.encode());
+		keychain_map.insert(difficulty.to_owned(), keymap);
+	}
+	(last_pubkey, keychain_map.to_owned())
 }
 
 /// Builds a new service for a full client.
@@ -227,7 +365,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
 			let current_backend = backend.clone();
-			thread::spawn(move || loop{
+			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
 				let find_seal = || -> Option<Seal> {
@@ -237,12 +375,12 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 					// info!("Current best block number: {}", best_num);
 					if best_num == 0 {
 						// genesis block does not have a a header, need to create a artificial seal.
-						return Some(genesis::genesis_seal());
+						return Some(genesis::genesis_seal(MIN_DIFFICULTY));
 					}
-					if let Some(header) = blockchain.header(BlockId::Hash(best_hash)).unwrap(){
+					if let Some(header) = blockchain.header(BlockId::Hash(best_hash)).unwrap() {
 						let mut digest = header.digest;
 						while let Some(item) = digest.pop() {
-							if let Some(raw_seal) = item.as_seal(){
+							if let Some(raw_seal) = item.as_seal() {
 								let mut coded_seal = raw_seal.1;
 								return Some(Seal::decode(&mut coded_seal).unwrap());
 							}
@@ -252,32 +390,38 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				};
 				// WARNING: do not use 0 as initial seed.
 				let mut seed = U256::from(1i32);
-				// loop {
-				//
-				// }
-				let worker = Arc::clone(&worker);
-				let metadata = worker.metadata();
-				let seal = find_seal();
-				if let (Some(metadata), Some(seal)) = (metadata, seal) {
-					// info!("Found seal!");
-					let mut compute = Compute {
-						difficulty: metadata.difficulty,
-						pre_hash: metadata.pre_hash,
-						nonce: U256::from(0i32),
-					};
-					if let Some(new_seal) = seal.try_cpu_mining(&mut compute, seed){
-						// Found a new seal, reset the mining seed.
-						seed = U256::from(1i32);
-						block_on(worker.submit(new_seal.encode()));
-					} else {
-						seed = seed.saturating_add(U256::from(1i32));
-						if seed == U256::MAX {
-							seed = U256::from(0i32);
+				loop {
+					let worker = Arc::clone(&worker);
+					let metadata = worker.metadata();
+					let seal = find_seal();
+					if let (Some(metadata), Some(seal)) = (metadata, seal) {
+						// info!("Found seal!");
+						//update keychains
+						let blockchain = current_backend.blockchain();
+						let chain_info = blockchain.info();
+						let block_number = chain_info.best_number;
+						let last_pubkey_for_cur_difficulty =
+							update_keychains_with_difficulty(&metadata.difficulty, block_number);
+
+						let mut compute = Compute {
+							difficulty: metadata.difficulty,
+							pre_hash: metadata.pre_hash,
+							nonce: U256::from(0i32),
+						};
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, seed, last_pubkey_for_cur_difficulty) {
+							// Found a new seal, reset the mining seed.
+							seed = U256::from(1i32);
+							block_on(worker.submit(new_seal.encode()));
+						} else {
+							seed = seed.saturating_add(U256::from(1i32));
+							if seed == U256::MAX {
+								seed = U256::from(0i32);
+							}
 						}
+					} else {
+						// info!("Not found seal or metadata!");
+						thread::sleep(Duration::new(1, 0));
 					}
-				} else {
-					// info!("Not found seal or metadata!");
-					thread::sleep(Duration::new(1, 0));
 				}
 			});
 		}
