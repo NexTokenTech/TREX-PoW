@@ -647,6 +647,7 @@ dependencies = [
  "capsule-pow",
  "capsule-runtime",
  "clap",
+ "cp-constants",
  "cp-inherent",
  "frame-benchmarking",
  "frame-benchmarking-cli",

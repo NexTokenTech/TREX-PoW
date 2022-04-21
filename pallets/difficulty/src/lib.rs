@@ -28,11 +28,10 @@ pub fn damp(actual: u128, goal: u128, damp_factor: u128) -> u128 {
 
 /// limit value to be within some factor from a goal
 pub fn clamp(block_time_target: u128, measured_block_time: u128) -> i128 {
-	// TODO: round function
 	let log2_resource = (block_time_target / measured_block_time).pow(2);
 	let log2_result = log2(log2_resource as f32);
 	let round_result = log2_result.round();
-	max(min(round_result as i32, CLAMP_FACTOR as i32), -(CLAMP_FACTOR as i32)) as i128
+	max(min(round_result as i128, CLAMP_FACTOR as i128), -(CLAMP_FACTOR as i128)) as i128
 }
 
 #[frame_support::pallet]
@@ -130,7 +129,7 @@ pub mod pallet {
 				});
 
 				// Calculates the actual time interval within DIFFICULTY_ADJUST_WINDOW,consider whether to add damped oscillation.
-				let mut ts_delta = 0;
+				let mut ts_delta = 0u128;
 				for i in 1..(DIFFICULTY_ADJUST_WINDOW as usize) {
 					let prev: Option<u128> =
 						data[i - 1].map(|d| d.timestamp.unique_saturated_into());
@@ -140,7 +139,7 @@ pub mod pallet {
 						(Some(prev), Some(cur)) => cur.saturating_sub(prev) / 1000,
 						_ => block_time.into(),
 					};
-					ts_delta += delta;
+					ts_delta = ts_delta.saturating_add(delta);
 				}
 
 				if ts_delta == 0 {
@@ -169,7 +168,7 @@ pub mod pallet {
 					timestamp: moment,
 					difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
 				});
-				current_height += 1;
+				current_height = current_height.saturating_add(1);
 				<PastDifficultiesAndTimestamps<T>>::put(data);
 				<CurrentHeight<T>>::put(current_height);
 			}

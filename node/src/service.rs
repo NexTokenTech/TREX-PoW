@@ -13,6 +13,7 @@ use std::{sync::Arc, thread, time::Duration};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::generic::BlockId;
 use capsule_pow::{Seal, Compute, genesis, CapsuleAlgorithm};
+use cp_constants::{MINNING_WORKER_TIMEOUT,MINNING_WORKER_BUILD_TIME};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -211,9 +212,9 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 					Ok(timestamp)
 				},
 				// time to wait for a new block before starting to mine a new one
-				Duration::from_secs(10),
+				Duration::from_secs(MINNING_WORKER_TIMEOUT),
 				// how long to take to actually build the block (i.e. executing extrinsics)
-				Duration::from_secs(10),
+				Duration::from_secs(MINNING_WORKER_BUILD_TIME),
 				can_author_with,
 			);
 
@@ -227,7 +228,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
 			let current_backend = backend.clone();
-			thread::spawn(move || loop{
+			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
 				let find_seal = || -> Option<Seal> {
@@ -252,32 +253,31 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				};
 				// WARNING: do not use 0 as initial seed.
 				let mut seed = U256::from(1i32);
-				// loop {
-				//
-				// }
-				let worker = Arc::clone(&worker);
-				let metadata = worker.metadata();
-				let seal = find_seal();
-				if let (Some(metadata), Some(seal)) = (metadata, seal) {
-					// info!("Found seal!");
-					let mut compute = Compute {
-						difficulty: metadata.difficulty,
-						pre_hash: metadata.pre_hash,
-						nonce: U256::from(0i32),
-					};
-					if let Some(new_seal) = seal.try_cpu_mining(&mut compute, seed){
-						// Found a new seal, reset the mining seed.
-						seed = U256::from(1i32);
-						block_on(worker.submit(new_seal.encode()));
-					} else {
-						seed = seed.saturating_add(U256::from(1i32));
-						if seed == U256::MAX {
-							seed = U256::from(0i32);
+				loop {
+					let worker = Arc::clone(&worker);
+					let metadata = worker.metadata();
+					let seal = find_seal();
+					if let (Some(metadata), Some(seal)) = (metadata, seal) {
+						// info!("Found seal!");
+						let mut compute = Compute {
+							difficulty: metadata.difficulty,
+							pre_hash: metadata.pre_hash,
+							nonce: U256::from(0i32),
+						};
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, seed){
+							// Found a new seal, reset the mining seed.
+							seed = U256::from(1i32);
+							block_on(worker.submit(new_seal.encode()));
+						} else {
+							seed = seed.saturating_add(U256::from(1i32));
+							if seed == U256::MAX {
+								seed = U256::from(0i32);
+							}
 						}
+					} else {
+						// info!("Not found seal or metadata!");
+						thread::sleep(Duration::new(1, 0));
 					}
-				} else {
-					// info!("Not found seal or metadata!");
-					thread::sleep(Duration::new(1, 0));
 				}
 			});
 		}

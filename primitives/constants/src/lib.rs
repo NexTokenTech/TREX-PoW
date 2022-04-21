@@ -49,3 +49,6 @@ pub const fn deposit(items: u32, bytes: u32) -> u128 {
 pub const HOURS: u32 = 60;
 /// Block number of one day.
 pub const DAYS: u32 = 24 * HOURS;
+
+pub const MINNING_WORKER_TIMEOUT: u64 = 10;
+pub const MINNING_WORKER_BUILD_TIME: u64 = 10;
