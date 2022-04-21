@@ -647,6 +647,7 @@ dependencies = [
  "capsule-pow",
  "capsule-runtime",
  "clap",
+ "cp-constants",
  "cp-inherent",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -691,10 +692,12 @@ dependencies = [
 name = "capsule-pow"
 version = "0.1.0"
 dependencies = [
+ "cp-constants",
  "elgamal_wasm",
  "parity-scale-codec",
  "rand 0.8.5",
  "rug",
+ "sc-client-api",
  "sc-consensus-pow",
  "sha2 0.10.2",
  "sp-api",
@@ -707,6 +710,7 @@ dependencies = [
 name = "capsule-runtime"
 version = "4.0.0-dev"
 dependencies = [
+ "cp-constants",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -716,11 +720,11 @@ dependencies = [
  "hex-literal",
  "pallet-balances",
  "pallet-capsule",
+ "pallet-difficulty",
  "pallet-randomness-collective-flip",
  "pallet-storage",
  "pallet-storage-runtime-api",
  "pallet-sudo",
- "pallet-template",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -728,6 +732,7 @@ dependencies = [
  "scale-info",
  "sp-api",
  "sp-block-builder",
+ "sp-consensus-pow",
  "sp-core 5.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
  "sp-inherents",
  "sp-offchain",
@@ -935,6 +940,10 @@ name = "core-foundation-sys"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
+
+[[package]]
+name = "cp-constants"
+version = "0.1.0"
 
 [[package]]
 name = "cp-inherent"
@@ -1372,6 +1381,15 @@ name = "fake-simd"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e88a8acf291dafb59c2d96e8f59828f3838bb1a70398823ade51a84de6a6deed"
+
+[[package]]
+name = "fast-math"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2465292146cdfc2011350fe3b1c616ac83cf0faeedb33463ba1c332ed8948d66"
+dependencies = [
+ "ieee754",
+]
 
 [[package]]
 name = "fastrand"
@@ -2168,6 +2186,12 @@ dependencies = [
  "unicode-bidi",
  "unicode-normalization",
 ]
+
+[[package]]
+name = "ieee754"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9007da9cacbd3e6343da136e98b0d2df013f553d35bdec8b518f07bea768e19c"
 
 [[package]]
 name = "if-addrs"
@@ -3755,6 +3779,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-difficulty"
+version = "0.1.0"
+dependencies = [
+ "cp-constants",
+ "fast-math",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "num-traits",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 5.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 4.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
+ "sp-timestamp",
+]
+
+[[package]]
 name = "pallet-randomness-collective-flip"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17#22d40c761a985482f93bbbea5ba4199bdba74f8e"
@@ -3818,20 +3862,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 4.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
-]
-
-[[package]]
-name = "pallet-template"
-version = "4.0.0-dev"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core 5.0.0 (git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.17)",
- "sp-io",
- "sp-runtime",
 ]
 
 [[package]]

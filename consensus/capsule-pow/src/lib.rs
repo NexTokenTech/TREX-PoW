@@ -1,16 +1,19 @@
 mod generic;
 mod utils;
 pub mod genesis;
-
+use sp_api::ProvideRuntimeApi;
+use std::sync::Arc;
 use elgamal_wasm::generic::PublicKey;
 use elgamal_wasm::{KeyGenerator, RawPublicKey};
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sc_consensus_pow::{Error, PowAlgorithm};
 use sha2::{Digest, Sha256};
-use sp_consensus_pow::Seal as RawSeal;
+use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use codec::{Encode, Decode};
+use cp_constants::{Difficulty};
+use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
 
 // local packages.
 pub use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State, Solutions};
@@ -23,19 +26,17 @@ const BIG_INT_0: Integer = Integer::ZERO;
 /// `RawSeal` type.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Seal {
-	pub difficulty: u128,
+	pub difficulty: Difficulty,
 	pub pubkey: RawPublicKey,
 	pub solutions: Solutions<U256>,
 	pub nonce: U256,
 }
 
 impl Seal {
-	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256>>(&self, compute: &mut C, seed: U256) -> Option<Self>{
+	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(&self, compute: &mut C, seed: U256) -> Option<Self>{
 		let seed_int = u256_bigint(&seed);
 		let old_pubkey = &self.pubkey;
-		// generate a new pubkey from existing pubkey with difficulty adjustment.
-		// TODO: difficulty adjustment is not yet implemented.
-		let difficulty = self.difficulty;
+		let difficulty = compute.get_difficulty();
 		let raw_pubkey = old_pubkey.yield_pubkey(difficulty as u32);
 		let pubkey = PublicKey::<Integer>::from_raw(raw_pubkey.clone());
 		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {
@@ -52,14 +53,33 @@ impl Seal {
 	}
 }
 
+/// Determine whether the given hash satisfies the given difficulty.
+/// The test is done by multiplying the two together. If the product
+/// overflows the bounds of U128, then the product (and thus the hash)
+/// was too high.
+// fn hash_meets_difficulty(seal_difficulty: &Difficulty, difficulty: Difficulty) -> bool {
+// 	seal_difficulty == &difficulty
+// }
+
 /// A not-yet-computed attempt to solve the proof of work. Calling the
 /// compute method will compute the hash and return the seal.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Compute {
-	pub difficulty: u128,
+	pub difficulty: Difficulty,
 	pub pre_hash: H256,
 	pub nonce: U256,
 }
+
+pub trait OnCompute<E> {
+	fn get_difficulty(&self) -> E;
+}
+
+impl OnCompute<Difficulty> for Compute {
+	fn get_difficulty(&self) -> Difficulty {
+		self.difficulty.clone()
+	}
+}
+
 
 impl Solution<Integer> {
 	fn new_random(n: Integer, seed: &Integer) -> Self {
@@ -234,17 +254,17 @@ impl SolutionVerifier {
 }
 
 /// A minimal PoW algorithm that uses pollard rho method.
-/// Difficulty is fixed at 32 bit long uint.
+/// Difficulty is fixed at 48 bit long uint.
 #[derive(Clone)]
 pub struct MinimalCapsuleAlgorithm;
 
 // Here we implement the minimal Capsule Pow Algorithm trait
 impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
-	type Difficulty = u128;
+	type Difficulty = Difficulty;
 
 	fn difficulty(&self, _parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
 		// Fixed difficulty hardcoded here
-		Ok(32u128)
+		Ok(48 as Difficulty)
 	}
 
 	fn verify(
@@ -277,6 +297,87 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 		}
 
 		Ok(false)
+	}
+}
+
+/// A complete PoW Algorithm that uses Sha3 hashing.
+/// Needs a reference to the client so it can grab the difficulty from the runtime.
+pub struct CapsuleAlgorithm<C> {
+	client: Arc<C>,
+}
+
+impl<C> CapsuleAlgorithm<C> {
+	pub fn new(client: Arc<C>) -> Self {
+		Self { client }
+	}
+}
+
+// Manually implement clone. Deriving doesn't work because
+// it'll derive impl<C: Clone> Clone for CapsuleAlgorithm<C>. But C in practice isn't Clone.
+impl<C> Clone for CapsuleAlgorithm<C> {
+	fn clone(&self) -> Self {
+		Self::new(self.client.clone())
+	}
+}
+
+// Here we implement the general PowAlgorithm trait for our concrete Sha3Algorithm
+impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
+	where
+		C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
+		C::Api: DifficultyApi<B, Difficulty>,
+{
+	type Difficulty = Difficulty;
+
+	fn difficulty(&self, parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
+		let parent_id = BlockId::<B>::hash(parent);
+		let difficulty_result = self.client
+			.runtime_api()
+			.difficulty(&parent_id)
+			.map_err(|err| {
+				sc_consensus_pow::Error::Environment(format!(
+					"Fetching difficulty from runtime failed: {:?}",
+					err
+				))
+			});
+		difficulty_result
+	}
+
+	fn verify(
+		&self,
+		_parent: &BlockId<B>,
+		pre_hash: &H256,
+		_pre_digest: Option<&[u8]>,
+		seal: &RawSeal,
+		difficulty: Self::Difficulty,
+	) -> Result<bool, Error<B>> {
+		// Try to construct a seal object by decoding the raw seal given
+		let seal = match Seal::decode(&mut &seal[..]) {
+			Ok(seal) => seal,
+			Err(_) => return Ok(false),
+		};
+
+		// TODO:// difficulty verify
+		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
+		// if !hash_meets_difficulty(&seal.difficulty, difficulty) {
+		// 	return Ok(false);
+		// }
+
+		// Make sure the provided work actually comes from the correct pre_hash
+		let header = Compute {
+			difficulty,
+			pre_hash: *pre_hash,
+			nonce: seal.nonce,
+		};
+		let raw_key = seal.pubkey;
+		let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+		let verifier = SolutionVerifier;
+		let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
+						 Solution::<Integer>::from_u256(&seal.solutions.1));
+		if verifier.verify(&solutions, &pubkey, &header) {
+			return Ok(true);
+		}
+
+		Ok(true)
 	}
 }
 
@@ -320,7 +421,7 @@ mod tests {
 		let limit = 10;
 		let mut seed = Integer::from(1);
 		let mut compute = Compute {
-			difficulty: 32u128,
+			difficulty: 48 as Difficulty,
 			pre_hash: H256::from([1u8; 32]),
 			nonce: U256::from(0i32),
 		};

@@ -3,7 +3,6 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/node/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/pallets/template/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/runtime/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/consensus/sha3pow/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/primitives/runtime/src" isTestSource="false" />
@@ -14,6 +13,8 @@
       <sourceFolder url="file://$MODULE_DIR$/pallets/storage/rpc/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/storage/runtime-api/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/storage/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pallets/difficulty/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/primitives/constants/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

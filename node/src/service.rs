@@ -12,7 +12,8 @@ use sp_core::{Decode, Encode, U256};
 use std::{sync::Arc, thread, time::Duration};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::generic::BlockId;
-use capsule_pow::{Seal, Compute, MinimalCapsuleAlgorithm, genesis};
+use capsule_pow::{Seal, Compute, genesis, CapsuleAlgorithm};
+use cp_constants::{MINNING_WORKER_TIMEOUT,MINNING_WORKER_BUILD_TIME};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -57,7 +58,7 @@ pub fn new_partial(
 				Arc<FullClient>,
 				FullClient,
 				FullSelectChain,
-				MinimalCapsuleAlgorithm,
+				CapsuleAlgorithm<FullClient>,
 				impl sp_consensus::CanAuthorWith<Block>,
 				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
 			>,
@@ -104,16 +105,18 @@ pub fn new_partial(
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
+	let algorithm = capsule_pow::CapsuleAlgorithm::new(client.clone());
+
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
 		Arc::clone(&client),
-		MinimalCapsuleAlgorithm,
+		algorithm.clone(),
 		0, // check inherent starting at block 0
 		select_chain.clone(),
 		|_parent, ()| async {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
-			Ok((timestamp,capsule_data))
+			// let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
+			Ok(timestamp)
 		},
 		can_author_with,
 	);
@@ -121,7 +124,7 @@ pub fn new_partial(
 	let import_queue = sc_consensus_pow::import_queue(
 		Box::new(pow_block_import.clone()),
 		None,
-		MinimalCapsuleAlgorithm,
+		algorithm.clone(),
 		&task_manager.spawn_essential_handle(),
 		config.prometheus_registry(),
 	)?;
@@ -187,6 +190,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 		if mining {
+			let algorithm = capsule_pow::CapsuleAlgorithm::new(client.clone());
 			// Parameter details:
 			//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
 			// Also refer to kulupu config:
@@ -195,7 +199,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				Box::new(pow_block_import),
 				Arc::clone(&client),
 				select_chain,
-				MinimalCapsuleAlgorithm,
+				algorithm.clone(),
 				proposer,
 				Arc::clone(&network),
 				Arc::clone(&network),
@@ -204,13 +208,13 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				// For block production we want to provide our inherent data provider
 				|_parent, ()| async {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-					let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
-					Ok((timestamp, capsule_data))
+					// let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
+					Ok(timestamp)
 				},
 				// time to wait for a new block before starting to mine a new one
-				Duration::from_secs(30),
+				Duration::from_secs(MINNING_WORKER_TIMEOUT),
 				// how long to take to actually build the block (i.e. executing extrinsics)
-				Duration::from_secs(30),
+				Duration::from_secs(MINNING_WORKER_BUILD_TIME),
 				can_author_with,
 			);
 

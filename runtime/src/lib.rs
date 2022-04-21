@@ -22,7 +22,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
+use cp_constants::Difficulty;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
@@ -33,6 +33,7 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
+use cp_constants::{BLOCK_TIME_SEC};//SLOT_DURATION
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -40,8 +41,8 @@ use pallet_transaction_payment::CurrencyAdapter;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
+/// Import the difficulty pallet.
+pub use pallet_difficulty;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -97,15 +98,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 1,
 	state_version: 1,
 };
-
-/// This determines the average expected block time that we are targeting.
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 30000;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -187,13 +179,13 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const MinimumPeriod: u64 = MILLISECS_PER_BLOCK / 2;
+	pub const MinimumPeriod: u64 = 3000;//SLOT_DURATION / 2;
 }
 
 impl pallet_timestamp::Config for Runtime {
 	/// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = ();
+	type OnTimestampSet = DifficultyModule;
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
@@ -235,12 +227,15 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
-/// Configure the pallet-template in pallets/template.
-impl pallet_template::Config for Runtime {
-	type Event = Event;
+parameter_types! {
+	pub const TargetBlockTime: u64 = BLOCK_TIME_SEC as u64;
 }
 
-// ---------------------- Recipe Pallet Configurations ----------------------
+/// Configure the pallet-difficulty in pallets/difficulty.
+impl pallet_difficulty::Config for Runtime {
+	type TargetBlockTime = TargetBlockTime;
+}
+
 impl pallet_storage::Config for Runtime {
 	type Event = Event;
 }
@@ -263,8 +258,8 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
-		// Include the custom logic from the pallet-template in the runtime.
-		TemplateModule: pallet_template,
+		// Include the custom logic from the pallet-difficulty in the runtime.
+		DifficultyModule: pallet_difficulty,
 		StorageModule: pallet_storage,
 		CapsuleModule: pallet_capsule
 	}
@@ -394,6 +389,24 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl sp_consensus_pow::TimestampApi<Block, u64> for Runtime {
+		fn timestamp() -> u64 {
+			pallet_timestamp::Pallet::<Runtime>::get()
+		}
+	}
+
+	impl sp_consensus_pow::DifficultyApi<Block,Difficulty> for Runtime {
+		fn difficulty() -> Difficulty {
+			pallet_difficulty::Pallet::<Runtime>::difficulty().unwrap()
+		}
+	}
+	//
+	// impl kulupu_primitives::AlgorithmApi<Block> for Runtime {
+	// 	fn identifier() -> [u8; 8] {
+	// 		kulupu_primitives::ALGORITHM_IDENTIFIER_V2
+	// 	}
+	// }
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
@@ -411,7 +424,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
 			list_benchmark!(list, extra, pallet_balances, Balances);
 			list_benchmark!(list, extra, pallet_timestamp, Timestamp);
-			list_benchmark!(list, extra, pallet_template, TemplateModule);
+			list_benchmark!(list, extra, pallet_difficulty, DifficultyModule);
 			list_benchmark!(list, extra, pallet_capsule, CapsuleModule);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
@@ -450,7 +463,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
-			add_benchmark!(params, batches, pallet_template, TemplateModule);
+			add_benchmark!(params, batches, pallet_difficulty, DifficultyModule);
 			add_benchmark!(params, batches, pallet_capsule, CapsuleModule);
 
 			Ok(batches)
