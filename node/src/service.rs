@@ -3,8 +3,8 @@
 use capsule_pow::genesis::genesis_seal;
 use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
 use capsule_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
-use cp_constants::{Difficulty, KEYCHAIN_MAP_FILE_PATH, MIN_DIFFICULTY, UPDATE_KEY_CHAIN_RANGE};
-use elgamal_wasm::{KeyGenerator, RawPublicKey};
+use cp_constants::{Difficulty, KEYCHAIN_MAP_FILE_PATH, MIN_DIFFICULTY,MAX_DIFFICULTY};
+use elgamal_capsule::{KeyGenerator, RawPublicKey};
 use futures::executor::block_on;
 use sc_client_api::{Backend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
@@ -17,6 +17,7 @@ use sp_core::{Decode, Encode, U256};
 use sp_runtime::generic::BlockId;
 use std::collections::HashMap;
 use std::{sync::Arc, thread, time::Duration};
+use rug::{rand::RandState};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -176,22 +177,16 @@ pub fn update_keychains_with_difficulty(
 	let last_pubkey = keychain_map_tuple.0;
 	let mut keychain_map_final = keychain_map_tuple.1;
 
-	// Generate the pub_key of UPDATE_KEY_CHAIN_RANGE derived from the current difficulty
-	let mut difficulty_list: Vec<Difficulty> = Vec::<Difficulty>::new();
-	for i in 0..UPDATE_KEY_CHAIN_RANGE {
-		let iu128 = i as u128;
-		if i != 0 {
-			if current_difficulty >= iu128 {
-				difficulty_list.push(current_difficulty - iu128);
-			}
-			difficulty_list.push(current_difficulty + iu128);
+	for difficulty_tmp in 10..(MAX_DIFFICULTY-1){
+		if difficulty_tmp == difficulty.to_owned() {
+			continue;
 		}
-	}
-	for difficulty_tmp in difficulty_list {
 		let keychain_map_tuple = handle_pubkey(&mut keychain_map, &difficulty_tmp, &best_number);
 		keychain_map_final = keychain_map_tuple.1;
 	}
 
+	// remove old file
+	std::fs::remove_file(KEYCHAIN_MAP_FILE_PATH);
 	// new a file instance for overwrite json file.
 	let f = std::fs::OpenOptions::new()
 		.write(true)
@@ -218,9 +213,12 @@ pub fn handle_pubkey(
 	difficulty: &Difficulty,
 	best_number: &u32,
 ) -> (RawPublicKey, HashMap<Difficulty, HashMap<u32, Vec<u8>>>) {
+	// init rand instance
+	let mut rand = RandState::new_mersenne_twister();
+	// difficulty to owned
+	let difficulty = difficulty.to_owned();
 	// get difficult and last_number for specified difficulty
-	let mut last_pukey_for_cur_difficulty = keychain_map.get(&difficulty);
-	let last_pubkey = match last_pukey_for_cur_difficulty {
+	let last_pubkey = match keychain_map.get(&difficulty) {
 		Some(last_number_and_difficulty) => {
 			// get last number
 			let mut last_number = 0u32;
@@ -236,7 +234,7 @@ pub fn handle_pubkey(
 			let mut iter_pubkey = last_pubkey;
 			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
 			for _ in last_number..best_number.to_owned() {
-				let next_pubkey = iter_pubkey.yield_pubkey((difficulty.to_owned()) as u32);
+				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand,difficulty as u32);
 				iter_pubkey = next_pubkey;
 			}
 			// return pubkey
@@ -245,12 +243,12 @@ pub fn handle_pubkey(
 		None => {
 			// Genesis generates pubkey
 			let seal = genesis_seal(difficulty.to_owned());
-			let genesis_pubkey = seal.pubkey.yield_pubkey((difficulty.to_owned()) as u32);
+			let genesis_pubkey = seal.pubkey.yield_pubkey(&mut rand,difficulty as u32);
 			// define pubkey for iteration
 			let mut iter_pubkey = genesis_pubkey;
 			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
 			for _ in 1..best_number.to_owned() {
-				let next_pubkey = iter_pubkey.yield_pubkey((difficulty.to_owned()) as u32);
+				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand,difficulty as u32);
 				iter_pubkey = next_pubkey;
 			}
 			// return pubkey

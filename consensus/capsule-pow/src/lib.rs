@@ -3,8 +3,11 @@ mod utils;
 pub mod genesis;
 use sp_api::ProvideRuntimeApi;
 use std::sync::Arc;
-use elgamal_wasm::generic::PublicKey;
-use elgamal_wasm::{KeyGenerator, RawPublicKey};
+use elgamal_capsule::generic::PublicKey;
+use elgamal_capsule::{
+	elgamal::{RawPublicKey,RawKey},
+	KeyGenerator
+};
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sc_consensus_pow::{Error, PowAlgorithm};
 use sha2::{Digest, Sha256};
@@ -34,11 +37,12 @@ pub struct Seal {
 
 impl Seal {
 	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(&self, compute: &mut C, seed: U256, pre_pubkey:RawPublicKey) -> Option<Self>{
+		let mut rand = RandState::new_mersenne_twister();
 		let seed_int = u256_bigint(&seed);
 		let old_pubkey = pre_pubkey;
 		let difficulty = compute.get_difficulty();
-		let raw_pubkey = old_pubkey.yield_pubkey(difficulty as u32);
-		let pubkey = PublicKey::<Integer>::from_raw(raw_pubkey);
+		let raw_pubkey = old_pubkey.yield_pubkey(&mut rand,difficulty as u32);
+		let pubkey = PublicKey::from_raw(raw_pubkey);
 		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {
 			// if find the solutions, build a new seal.
 			Some(Seal {
@@ -111,7 +115,7 @@ impl Solution<Integer> {
 
 impl State<Integer> {
 	/// Derive a new node state from a public key.
-	fn from_pub_key(key: PublicKey<Integer>, seed: Integer) -> Self {
+	fn from_pub_key(key: PublicKey, seed: Integer) -> Self {
 		let p_1 = Integer::from(&key.p - 1);
 		let n = Integer::from(&p_1 / 2);
 		let solution = Solution::new_random(n, &seed);
@@ -203,45 +207,19 @@ impl CycleFinding<Integer, U256> for State<Integer> {
 	}
 }
 
-/// To and from raw bytes of a public key. Use little endian byte order by default.
-pub trait RawKey {
-	fn to_raw(self) -> RawPublicKey;
-	fn from_raw(raw_key: RawPublicKey) -> Self;
-}
-
-impl RawKey for PublicKey<Integer> {
-	fn to_raw(self) -> RawPublicKey {
-		RawPublicKey {
-			p: bigint_u256(&self.p),
-			g: bigint_u256(&self.g),
-			h: bigint_u256(&self.h),
-			bit_length: self.bit_length,
-		}
-	}
-
-	fn from_raw(raw_key: RawPublicKey) -> Self {
-		PublicKey::<Integer>{
-			p: u256_bigint(&raw_key.p),
-			g: u256_bigint(&raw_key.g),
-			h: u256_bigint(&raw_key.h),
-			bit_length: raw_key.bit_length,
-		}
-	}
-}
-
 /// A verifier contains methods to validate mining results.
 pub struct SolutionVerifier;
 
 impl SolutionVerifier {
 	/// Derive one side of the value for the equation in the pollard rho method.
-	fn derive(&self, solution: &Solution<Integer>, pubkey: &PublicKey<Integer>) -> Integer {
+	fn derive(&self, solution: &Solution<Integer>, pubkey: &PublicKey) -> Integer {
 		let g_a_p = Integer::from(pubkey.g.pow_mod_ref(&solution.a, &pubkey.p).unwrap());
 		let h_b_p = Integer::from(pubkey.h.pow_mod_ref(&solution.b, &pubkey.p).unwrap());
 		(g_a_p * h_b_p).div_rem_euc_ref(&pubkey.p).complete().1
 	}
 
 	/// Verify the validation of solutions and
-	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey<Integer>, header: &Compute) -> bool {
+	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey, header: &Compute) -> bool {
 		let y_1 = self.derive(&solutions.0, &pubkey);
 		let y_2 =  self.derive(&solutions.1, &pubkey);
 		// if solutions are valid, verify the hash of nonce.
@@ -288,7 +266,7 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 			nonce: seal.nonce,
 		};
 		let raw_key = seal.pubkey;
-		let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+		let pubkey = PublicKey::from_raw(raw_key);
 		let verifier = SolutionVerifier;
 		let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
 						 Solution::<Integer>::from_u256(&seal.solutions.1));
@@ -369,7 +347,7 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
 			nonce: seal.nonce,
 		};
 		let raw_key = seal.pubkey;
-		let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+		let pubkey = PublicKey::from_raw(raw_key);
 		let verifier = SolutionVerifier;
 		let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
 						 Solution::<Integer>::from_u256(&seal.solutions.1));
@@ -381,7 +359,7 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
 	}
 }
 
-fn pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: PublicKey<Integer>, compute: &mut C, seed: Integer) -> Option<Solutions<Integer>> {
+fn pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: PublicKey, compute: &mut C, seed: Integer) -> Option<Solutions<Integer>> {
 	// generate initial states.
 	let mut state_1 = State::<Integer>::from_pub_key(pubkey, seed);
 	let mut state_2 = state_1.clone();
@@ -416,7 +394,7 @@ mod tests {
 		let num = Integer::from(57);
 		let res = g.pow_mod_ref(&num, &p).unwrap();
 		let h = Integer::from(res);
-		let pubkey = PublicKey::<Integer> { p, g, h, bit_length: 32 };
+		let pubkey = PublicKey { p, g, h, bit_length: 32 };
 		let mut loop_count = 0;
 		let limit = 10;
 		let mut seed = Integer::from(1);
