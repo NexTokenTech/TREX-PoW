@@ -3,7 +3,7 @@
 use capsule_pow::genesis::genesis_seal;
 use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
 use capsule_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
-use cp_constants::{Difficulty, KEYCHAIN_MAP_FILE_PATH, MIN_DIFFICULTY,MAX_DIFFICULTY};
+use cp_constants::{Difficulty, KEYCHAIN_MAP_FILE_PATH, MIN_DIFFICULTY,MAX_DIFFICULTY,MINNING_WORKER_TIMEOUT,MINNING_WORKER_BUILD_TIME};
 use elgamal_capsule::{KeyGenerator, RawPublicKey};
 use futures::executor::block_on;
 use sc_client_api::{Backend, ExecutorProvider};
@@ -347,9 +347,9 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 					Ok(timestamp)
 				},
 				// time to wait for a new block before starting to mine a new one
-				Duration::from_secs(10),
+				Duration::from_secs(MINNING_WORKER_TIMEOUT),
 				// how long to take to actually build the block (i.e. executing extrinsics)
-				Duration::from_secs(10),
+				Duration::from_secs(MINNING_WORKER_BUILD_TIME),
 				can_author_with,
 			);
 
