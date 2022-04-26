@@ -21,6 +21,7 @@ use sp_core::{Decode, Encode, U256};
 use sp_runtime::generic::BlockId;
 use std::collections::HashMap;
 use std::{sync::Arc, thread, time::Duration};
+use futures::stream::iter;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -168,7 +169,7 @@ pub fn update_keychains_with_difficulty(
 	let default_keychain_map: HashMap<Difficulty, HashMap<u32, Vec<u8>>> =
 		HashMap::<Difficulty, HashMap<u32, Vec<u8>>>::new();
 	let mut keychain_map: HashMap<Difficulty, HashMap<u32, Vec<u8>>> = match f {
-		Ok(f_ok) => match serde_json::from_reader(f_ok) {
+		Ok(keychain_file) => match serde_json::from_reader(keychain_file) {
 			Ok(keychain_map) => keychain_map,
 			Err(_) => default_keychain_map,
 		},
@@ -180,7 +181,7 @@ pub fn update_keychains_with_difficulty(
 	let last_pubkey = keychain_map_tuple.0;
 	let mut keychain_map_final = keychain_map_tuple.1;
 
-	for difficulty_tmp in 10..(MAX_DIFFICULTY - 1) {
+	for difficulty_tmp in MIN_DIFFICULTY..(MAX_DIFFICULTY - 1) {
 		if difficulty_tmp == difficulty.to_owned() {
 			continue;
 		}
@@ -188,7 +189,7 @@ pub fn update_keychains_with_difficulty(
 		keychain_map_final = keychain_map_tuple.1;
 	}
 
-	// remove old file
+	// remove old file,make sure the file is clear for writing.
 	std::fs::remove_file(KEYCHAIN_MAP_FILE_PATH);
 	// new a file instance for overwrite json file.
 	let f = std::fs::OpenOptions::new()
@@ -196,19 +197,14 @@ pub fn update_keychains_with_difficulty(
 		.create(true)
 		.open(KEYCHAIN_MAP_FILE_PATH);
 	match f {
-		Ok(f_ok) => {
+		Ok(keychain_file) => {
 			// write file using serde
-			serde_json::to_writer_pretty(f_ok, &keychain_map_final);
+			serde_json::to_writer_pretty(keychain_file, &keychain_map_final);
 		},
 		Err(_) => {},
 	}
 
-	if best_number != 0 {
-		last_pubkey
-	} else {
-		let seal = genesis_seal(current_difficulty);
-		seal.pubkey
-	}
+	last_pubkey
 }
 
 pub fn handle_pubkey(
@@ -220,6 +216,7 @@ pub fn handle_pubkey(
 	let mut rand = RandState::new_mersenne_twister();
 	// difficulty to owned
 	let difficulty = difficulty.to_owned();
+
 	// get difficult and last_number for specified difficulty
 	let last_pubkey = match keychain_map.get(&difficulty) {
 		Some(last_number_and_difficulty) => {
@@ -246,11 +243,10 @@ pub fn handle_pubkey(
 		None => {
 			// Genesis generates pubkey
 			let seal = genesis_seal(difficulty.to_owned());
-			let genesis_pubkey = seal.pubkey.yield_pubkey(&mut rand, difficulty as u32);
 			// define pubkey for iteration
-			let mut iter_pubkey = genesis_pubkey;
+			let mut iter_pubkey = seal.pubkey;
 			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
-			for _ in 1..best_number.to_owned() {
+			for _ in 0..best_number.to_owned() {
 				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand, difficulty as u32);
 				iter_pubkey = next_pubkey;
 			}
