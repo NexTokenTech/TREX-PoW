@@ -1,4 +1,4 @@
-use elgamal_capsule::generic::PublicKey;
+use elgamal_capsule::elgamal::PublicKey;
 use codec::{Decode, Encode};
 
 #[derive(Debug, Clone)]
