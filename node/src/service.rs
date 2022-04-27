@@ -157,8 +157,6 @@ pub fn update_keychains_with_difficulty(
 	difficulty: &u128,
 	best_number: BlockNumber,
 ) -> RawPublicKey {
-	// cast current difficulty to owned.
-	let current_difficulty = difficulty.to_owned();
 	// create a file instance for write and read.
 	let f = std::fs::OpenOptions::new()
 		.write(true)
