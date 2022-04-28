@@ -209,6 +209,7 @@ pub fn update_keychains(
 	}
 
 	// remove old file,make sure the file is clear for writing.
+	// TODO: remove this code after change to hex string storage.
 	std::fs::remove_file(KEYCHAIN_MAP_FILE_PATH);
 	// new a file instance for overwrite json file.
 	let f = std::fs::OpenOptions::new()
@@ -219,7 +220,7 @@ pub fn update_keychains(
 		Ok(keychain_file) => {
 			// write file using serde
 			match serde_json::to_writer_pretty(keychain_file, &keychain_map) {
-				Ok(value) => {
+				Ok(_value) => {
 					info!("Successfully updated Keychain at best number: {}",best_number);
 				},
 				Err(error) => {
