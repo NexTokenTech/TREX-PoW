@@ -1,4 +1,4 @@
-use elgamal_wasm::generic::PublicKey;
+use elgamal_capsule::elgamal::PublicKey;
 use codec::{Decode, Encode};
 
 #[derive(Debug, Clone)]
@@ -26,7 +26,7 @@ pub struct State<I> {
     pub nonce: I,
     // current y_i
     pub work: I,
-    pub pubkey: PublicKey<I>,
+    pub pubkey: PublicKey,
 }
 
 pub trait Hash<I, E: Encode> {

@@ -1,23 +1,27 @@
 mod generic;
-mod utils;
 pub mod genesis;
-use sp_api::ProvideRuntimeApi;
-use std::sync::Arc;
-use elgamal_wasm::generic::PublicKey;
-use elgamal_wasm::{KeyGenerator, RawPublicKey};
+mod utils;
+use codec::{Decode, Encode};
+use cp_constants::Difficulty;
+use elgamal_capsule::{
+	elgamal::{RawKey, RawPublicKey, PublicKey},
+	KeyGenerator,
+};
 use rug::{integer::Order, rand::RandState, Complete, Integer};
+use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
 use sc_consensus_pow::{Error, PowAlgorithm};
 use sha2::{Digest, Sha256};
+use sp_api::ProvideRuntimeApi;
 use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use codec::{Encode, Decode};
-use cp_constants::{Difficulty};
-use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
+use std::sync::Arc;
 
 // local packages.
-pub use crate::generic::{CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, State, Solutions};
-use utils::{bigint_u256, u256_bigint, gen_bigint_range};
+pub use crate::generic::{
+	CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, Solutions, State,
+};
+use utils::{bigint_u256, gen_bigint_range, u256_bigint};
 
 // constants.
 const BIG_INT_0: Integer = Integer::ZERO;
@@ -33,12 +37,18 @@ pub struct Seal {
 }
 
 impl Seal {
-	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(&self, compute: &mut C, seed: U256) -> Option<Self>{
+	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(
+		&self,
+		compute: &mut C,
+		seed: U256,
+		pre_pubkey: RawPublicKey,
+	) -> Option<Self> {
+		let mut rand = RandState::new_mersenne_twister();
 		let seed_int = u256_bigint(&seed);
-		let old_pubkey = &self.pubkey;
+		let old_pubkey = pre_pubkey;
 		let difficulty = compute.get_difficulty();
-		let raw_pubkey = old_pubkey.yield_pubkey(difficulty as u32);
-		let pubkey = PublicKey::<Integer>::from_raw(raw_pubkey.clone());
+		let raw_pubkey = old_pubkey.yield_pubkey(&mut rand, difficulty as u32);
+		let pubkey = PublicKey::from_raw(raw_pubkey);
 		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {
 			// if find the solutions, build a new seal.
 			Some(Seal {
@@ -47,7 +57,7 @@ impl Seal {
 				solutions: (solutions.0.to_u256(), solutions.1.to_u256()),
 				nonce: compute.get_nonce(),
 			})
-		} else{
+		} else {
 			None
 		}
 	}
@@ -80,7 +90,6 @@ impl OnCompute<Difficulty> for Compute {
 	}
 }
 
-
 impl Solution<Integer> {
 	fn new_random(n: Integer, seed: &Integer) -> Self {
 		let mut rand = RandState::new_mersenne_twister();
@@ -111,7 +120,7 @@ impl Solution<Integer> {
 
 impl State<Integer> {
 	/// Derive a new node state from a public key.
-	fn from_pub_key(key: PublicKey<Integer>, seed: Integer) -> Self {
+	fn from_pub_key(key: PublicKey, seed: Integer) -> Self {
 		let p_1 = Integer::from(&key.p - 1);
 		let n = Integer::from(&p_1 / 2);
 		let solution = Solution::new_random(n, &seed);
@@ -128,7 +137,9 @@ impl Hash<Integer, U256> for Compute {
 		self.nonce = bigint_u256(int);
 	}
 
-	fn get_nonce(&self) -> U256 { self.nonce.clone()}
+	fn get_nonce(&self) -> U256 {
+		self.nonce.clone()
+	}
 
 	fn hash_integer(&self) -> Integer {
 		// digest nonce by hashing with header data.
@@ -203,47 +214,21 @@ impl CycleFinding<Integer, U256> for State<Integer> {
 	}
 }
 
-/// To and from raw bytes of a public key. Use little endian byte order by default.
-pub trait RawKey {
-	fn to_raw(self) -> RawPublicKey;
-	fn from_raw(raw_key: RawPublicKey) -> Self;
-}
-
-impl RawKey for PublicKey<Integer> {
-	fn to_raw(self) -> RawPublicKey {
-		RawPublicKey {
-			p: bigint_u256(&self.p),
-			g: bigint_u256(&self.g),
-			h: bigint_u256(&self.h),
-			bit_length: self.bit_length,
-		}
-	}
-
-	fn from_raw(raw_key: RawPublicKey) -> Self {
-		PublicKey::<Integer>{
-			p: u256_bigint(&raw_key.p),
-			g: u256_bigint(&raw_key.g),
-			h: u256_bigint(&raw_key.h),
-			bit_length: raw_key.bit_length,
-		}
-	}
-}
-
 /// A verifier contains methods to validate mining results.
 pub struct SolutionVerifier;
 
 impl SolutionVerifier {
 	/// Derive one side of the value for the equation in the pollard rho method.
-	fn derive(&self, solution: &Solution<Integer>, pubkey: &PublicKey<Integer>) -> Integer {
+	fn derive(&self, solution: &Solution<Integer>, pubkey: &PublicKey) -> Integer {
 		let g_a_p = Integer::from(pubkey.g.pow_mod_ref(&solution.a, &pubkey.p).unwrap());
 		let h_b_p = Integer::from(pubkey.h.pow_mod_ref(&solution.b, &pubkey.p).unwrap());
 		(g_a_p * h_b_p).div_rem_euc_ref(&pubkey.p).complete().1
 	}
 
 	/// Verify the validation of solutions and
-	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey<Integer>, header: &Compute) -> bool {
+	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey, header: &Compute) -> bool {
 		let y_1 = self.derive(&solutions.0, &pubkey);
-		let y_2 =  self.derive(&solutions.1, &pubkey);
+		let y_2 = self.derive(&solutions.1, &pubkey);
 		// if solutions are valid, verify the hash of nonce.
 		let hash_i = header.hash_integer().div_rem_euc(pubkey.p.clone()).1;
 		let nonce = u256_bigint(&header.nonce);
@@ -282,16 +267,14 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 		};
 
 		// Make sure the provided work actually comes from the correct pre_hash
-		let header = Compute {
-			difficulty,
-			pre_hash: *pre_hash,
-			nonce: seal.nonce,
-		};
+		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
-		let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+		let pubkey = PublicKey::from_raw(raw_key);
 		let verifier = SolutionVerifier;
-		let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
-						 Solution::<Integer>::from_u256(&seal.solutions.1));
+		let solutions = (
+			Solution::<Integer>::from_u256(&seal.solutions.0),
+			Solution::<Integer>::from_u256(&seal.solutions.1),
+		);
 		if verifier.verify(&solutions, &pubkey, &header) {
 			return Ok(true);
 		}
@@ -322,23 +305,20 @@ impl<C> Clone for CapsuleAlgorithm<C> {
 
 // Here we implement the general PowAlgorithm trait for our concrete Sha3Algorithm
 impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
-	where
-		C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
-		C::Api: DifficultyApi<B, Difficulty>,
+where
+	C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
+	C::Api: DifficultyApi<B, Difficulty>,
 {
 	type Difficulty = Difficulty;
 
 	fn difficulty(&self, parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
 		let parent_id = BlockId::<B>::hash(parent);
-		let difficulty_result = self.client
-			.runtime_api()
-			.difficulty(&parent_id)
-			.map_err(|err| {
-				sc_consensus_pow::Error::Environment(format!(
-					"Fetching difficulty from runtime failed: {:?}",
-					err
-				))
-			});
+		let difficulty_result = self.client.runtime_api().difficulty(&parent_id).map_err(|err| {
+			sc_consensus_pow::Error::Environment(format!(
+				"Fetching difficulty from runtime failed: {:?}",
+				err
+			))
+		});
 		difficulty_result
 	}
 
@@ -363,16 +343,14 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
 		// }
 
 		// Make sure the provided work actually comes from the correct pre_hash
-		let header = Compute {
-			difficulty,
-			pre_hash: *pre_hash,
-			nonce: seal.nonce,
-		};
+		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
-		let pubkey = PublicKey::<Integer>::from_raw(raw_key);
+		let pubkey = PublicKey::from_raw(raw_key);
 		let verifier = SolutionVerifier;
-		let solutions = (Solution::<Integer>::from_u256(&seal.solutions.0),
-						 Solution::<Integer>::from_u256(&seal.solutions.1));
+		let solutions = (
+			Solution::<Integer>::from_u256(&seal.solutions.0),
+			Solution::<Integer>::from_u256(&seal.solutions.1),
+		);
 		if verifier.verify(&solutions, &pubkey, &header) {
 			return Ok(true);
 		}
@@ -381,7 +359,11 @@ impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
 	}
 }
 
-fn pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: PublicKey<Integer>, compute: &mut C, seed: Integer) -> Option<Solutions<Integer>> {
+fn pollard_rho<C: Clone + Hash<Integer, U256>>(
+	pubkey: PublicKey,
+	compute: &mut C,
+	seed: Integer,
+) -> Option<Solutions<Integer>> {
 	// generate initial states.
 	let mut state_1 = State::<Integer>::from_pub_key(pubkey, seed);
 	let mut state_2 = state_1.clone();
@@ -416,7 +398,7 @@ mod tests {
 		let num = Integer::from(57);
 		let res = g.pow_mod_ref(&num, &p).unwrap();
 		let h = Integer::from(res);
-		let pubkey = PublicKey::<Integer> { p, g, h, bit_length: 32 };
+		let pubkey = PublicKey { p, g, h, bit_length: 32 };
 		let mut loop_count = 0;
 		let limit = 10;
 		let mut seed = Integer::from(1);
@@ -426,16 +408,21 @@ mod tests {
 			nonce: U256::from(0i32),
 		};
 		loop {
-			if let Some(solutions) = pollard_rho(pubkey.clone(), &mut compute,seed.clone()){
+			if let Some(solutions) = pollard_rho(pubkey.clone(), &mut compute, seed.clone()) {
 				if let Some(key) = eqs_solvers(
 					&solutions.0.a,
 					&solutions.0.b,
 					&solutions.1.a,
 					&solutions.1.b,
-					&solutions.1.n){
+					&solutions.1.n,
+				) {
 					let validate = Integer::from(pubkey.g.pow_mod_ref(&key, &pubkey.p).unwrap());
-					assert_eq!(&validate, &pubkey.h, "The found key {} is not the original key {}", key, num);
-					return
+					assert_eq!(
+						&validate, &pubkey.h,
+						"The found key {} is not the original key {}",
+						key, num
+					);
+					return;
 				} else {
 					panic!("Failed to derive private key!")
 				}

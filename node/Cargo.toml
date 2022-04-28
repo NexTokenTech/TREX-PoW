@@ -23,6 +23,8 @@ rand = { version = "0.7.2", features = ["small_rng"] }
 sha3 = "0.9.0"
 clap = { version = "3.0", features = ["derive"] }
 async-trait = "0.1.52"
+serde_json = "1.0.74"
+rug = "1.14.1"
 
 # substrate client package
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
@@ -71,6 +73,8 @@ pallet-storage-runtime-api = { path = "../pallets/storage/runtime-api" }
 cp-inherent = { path = "../primitives/consensus/cp_provider"}
 # local packages
 cp-constants = { path = "../primitives/constants"}
+# Capsule packages
+elgamal_capsule = {version = "0.1.2", git = "https://github.com/NexTokenTech/elgamal_capsule.git", branch = "master"}
 
 [build-dependencies]
 substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
