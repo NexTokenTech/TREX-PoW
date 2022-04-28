@@ -22,6 +22,7 @@ use sp_runtime::generic::BlockId;
 use std::collections::HashMap;
 use std::{sync::Arc, thread, time::Duration};
 use futures::stream::iter;
+use log::info;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -153,10 +154,39 @@ pub fn new_partial(
 		other: (pow_block_import, telemetry),
 	})
 }
-pub fn update_keychains_with_difficulty(
-	difficulty: &u128,
+
+/// return pubkey for current difficulty at best number.
+pub fn get_updated_pubkey(
+	difficulty:&Difficulty,
+	keychain_map:&HashMap<Difficulty, HashMap<u32, Vec<u8>>>
+) -> RawPublicKey{
+	let last_pubkey = match keychain_map.get(difficulty) {
+		Some(last_number_and_difficulty) => {
+			// get last number
+			let mut last_number = 0u32;
+			for item in last_number_and_difficulty.keys() {
+				last_number = item.to_owned();
+				break;
+			}
+			// get last number's pubkey for bytes format
+			let last_pubkey_bytes = last_number_and_difficulty.get(&last_number).unwrap();
+			// decode to RawPublicKey struct
+			let last_pubkey = RawPublicKey::decode(&mut &last_pubkey_bytes[..]).unwrap();
+			last_pubkey
+		},
+		None => {
+			// Genesis generates pubkey
+			let seal = genesis_seal(*difficulty);
+			seal.pubkey
+		},
+	};
+	last_pubkey
+}
+
+/// update keychain's pubkey and overwrite to dest json file.
+pub fn update_keychains(
 	best_number: BlockNumber,
-) -> RawPublicKey {
+) -> HashMap<Difficulty, HashMap<u32, Vec<u8>>> {
 	// create a file instance for write and read.
 	let f = std::fs::OpenOptions::new()
 		.write(true)
@@ -174,17 +204,8 @@ pub fn update_keychains_with_difficulty(
 		Err(_) => default_keychain_map,
 	};
 
-	// Generate pubkey of current difficulty
-	let keychain_map_tuple = handle_pubkey(&mut keychain_map, &difficulty, &best_number);
-	let last_pubkey = keychain_map_tuple.0;
-	let mut keychain_map_final = keychain_map_tuple.1;
-
 	for difficulty_tmp in MIN_DIFFICULTY..(MAX_DIFFICULTY - 1) {
-		if difficulty_tmp == difficulty.to_owned() {
-			continue;
-		}
-		let keychain_map_tuple = handle_pubkey(&mut keychain_map, &difficulty_tmp, &best_number);
-		keychain_map_final = keychain_map_tuple.1;
+		update_pubkey(&mut keychain_map, &difficulty_tmp, &best_number);
 	}
 
 	// remove old file,make sure the file is clear for writing.
@@ -197,26 +218,32 @@ pub fn update_keychains_with_difficulty(
 	match f {
 		Ok(keychain_file) => {
 			// write file using serde
-			serde_json::to_writer_pretty(keychain_file, &keychain_map_final);
+			match serde_json::to_writer_pretty(keychain_file, &keychain_map) {
+				Ok(value) => {
+					info!("Successfully updated Keychain at best number: {}",best_number);
+				},
+				Err(error) => {
+					info!("Failed to update Keychain,Error Reason: {}",error);
+				}
+			};
 		},
 		Err(_) => {},
 	}
 
-	last_pubkey
+	keychain_map
 }
 
-pub fn handle_pubkey(
+/// update pubkey for dest difficulty at best_number
+pub fn update_pubkey(
 	keychain_map: &mut HashMap<Difficulty, HashMap<u32, Vec<u8>>>,
 	difficulty: &Difficulty,
 	best_number: &u32,
-) -> (RawPublicKey, HashMap<Difficulty, HashMap<u32, Vec<u8>>>) {
+){
 	// init rand instance
 	let mut rand = RandState::new_mersenne_twister();
-	// difficulty to owned
-	let difficulty = difficulty.to_owned();
 
 	// get difficult and last_number for specified difficulty
-	let last_pubkey = match keychain_map.get(&difficulty) {
+	let last_pubkey = match keychain_map.get(difficulty) {
 		Some(last_number_and_difficulty) => {
 			// get last number
 			let mut last_number = 0u32;
@@ -231,8 +258,8 @@ pub fn handle_pubkey(
 			// define pubkey for iteration
 			let mut iter_pubkey = last_pubkey;
 			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
-			for _ in last_number..best_number.to_owned() {
-				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand, difficulty as u32);
+			for _ in last_number..*best_number {
+				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand, *difficulty as u32);
 				iter_pubkey = next_pubkey;
 			}
 			// return pubkey
@@ -240,12 +267,12 @@ pub fn handle_pubkey(
 		},
 		None => {
 			// Genesis generates pubkey
-			let seal = genesis_seal(difficulty.to_owned());
+			let seal = genesis_seal(*difficulty);
 			// define pubkey for iteration
 			let mut iter_pubkey = seal.pubkey;
 			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
-			for _ in 0..best_number.to_owned() {
-				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand, difficulty as u32);
+			for _ in 0..*best_number {
+				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand, *difficulty as u32);
 				iter_pubkey = next_pubkey;
 			}
 			// return pubkey
@@ -256,11 +283,6 @@ pub fn handle_pubkey(
 	// update(mutate or insert) keychain_map
 	if keychain_map.contains_key(&difficulty) {
 		if let Some(keymap) = keychain_map.get_mut(&difficulty) {
-			let mut last_number = 0u32;
-			for item in keymap.keys() {
-				last_number = item.to_owned();
-				break;
-			}
 			let mut keymap_tmp = HashMap::<u32, Vec<u8>>::new();
 			keymap_tmp.insert(best_number.to_owned(), last_pubkey.encode());
 			*keymap = keymap_tmp;
@@ -270,7 +292,6 @@ pub fn handle_pubkey(
 		keymap.insert(best_number.to_owned(), last_pubkey.encode());
 		keychain_map.insert(difficulty.to_owned(), keymap);
 	}
-	(last_pubkey, keychain_map.to_owned())
 }
 
 /// Builds a new service for a full client.
@@ -395,8 +416,9 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 						let blockchain = current_backend.blockchain();
 						let chain_info = blockchain.info();
 						let block_number = chain_info.best_number;
-						let last_pubkey_for_cur_difficulty =
-							update_keychains_with_difficulty(&metadata.difficulty, block_number);
+						let keychain_map =
+							update_keychains(block_number);
+						let updated_pubkey = get_updated_pubkey(&metadata.difficulty,&keychain_map);
 
 						let mut compute = Compute {
 							difficulty: metadata.difficulty,
@@ -404,7 +426,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 							nonce: U256::from(0i32),
 						};
 						if let Some(new_seal) =
-							seal.try_cpu_mining(&mut compute, seed, last_pubkey_for_cur_difficulty)
+							seal.try_cpu_mining(&mut compute, seed, updated_pubkey)
 						{
 							// Found a new seal, reset the mining seed.
 							seed = U256::from(1i32);
