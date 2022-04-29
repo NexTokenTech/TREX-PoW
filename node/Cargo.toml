@@ -25,6 +25,8 @@ clap = { version = "3.0", features = ["derive"] }
 async-trait = "0.1.52"
 serde_json = "1.0.74"
 rug = "1.14.1"
+hex = "0.4.3"
+tokio = "1.18.0"
 
 # substrate client package
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }

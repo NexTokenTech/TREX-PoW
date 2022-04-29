@@ -21,8 +21,8 @@ use sp_core::{Decode, Encode, U256};
 use sp_runtime::generic::BlockId;
 use std::collections::HashMap;
 use std::{sync::Arc, thread, time::Duration};
-use futures::stream::iter;
 use log::info;
+use tokio::task;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -158,7 +158,7 @@ pub fn new_partial(
 /// return pubkey for current difficulty at best number.
 pub fn get_updated_pubkey(
 	difficulty:&Difficulty,
-	keychain_map:&HashMap<Difficulty, HashMap<u32, Vec<u8>>>
+	keychain_map:&HashMap<Difficulty, HashMap<u32, String>>
 ) -> RawPublicKey{
 	let last_pubkey = match keychain_map.get(difficulty) {
 		Some(last_number_and_difficulty) => {
@@ -168,8 +168,10 @@ pub fn get_updated_pubkey(
 				last_number = item.to_owned();
 				break;
 			}
+			// get last number's pubkey for hex format
+			let last_pubkey_hex = last_number_and_difficulty.get(&last_number).unwrap();
 			// get last number's pubkey for bytes format
-			let last_pubkey_bytes = last_number_and_difficulty.get(&last_number).unwrap();
+			let last_pubkey_bytes = hex::decode(last_pubkey_hex).unwrap();
 			// decode to RawPublicKey struct
 			let last_pubkey = RawPublicKey::decode(&mut &last_pubkey_bytes[..]).unwrap();
 			last_pubkey
@@ -185,58 +187,41 @@ pub fn get_updated_pubkey(
 
 /// update keychain's pubkey and overwrite to dest json file.
 pub fn update_keychains(
+	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
 	best_number: BlockNumber,
-) -> HashMap<Difficulty, HashMap<u32, Vec<u8>>> {
-	// create a file instance for write and read.
-	let f = std::fs::OpenOptions::new()
-		.write(true)
-		.create(true)
-		.read(true)
-		.open(KEYCHAIN_MAP_FILE_PATH);
-	// get keychain map from json file.
-	let default_keychain_map: HashMap<Difficulty, HashMap<u32, Vec<u8>>> =
-		HashMap::<Difficulty, HashMap<u32, Vec<u8>>>::new();
-	let mut keychain_map: HashMap<Difficulty, HashMap<u32, Vec<u8>>> = match f {
-		Ok(keychain_file) => match serde_json::from_reader(keychain_file) {
-			Ok(keychain_map) => keychain_map,
-			Err(_) => default_keychain_map,
-		},
-		Err(_) => default_keychain_map,
-	};
-
+){
 	for difficulty_tmp in MIN_DIFFICULTY..(MAX_DIFFICULTY - 1) {
-		update_pubkey(&mut keychain_map, &difficulty_tmp, &best_number);
+		update_pubkey(keychain_map, &difficulty_tmp, &best_number);
 	}
-
-	// remove old file,make sure the file is clear for writing.
-	// TODO: remove this code after change to hex string storage.
-	std::fs::remove_file(KEYCHAIN_MAP_FILE_PATH);
-	// new a file instance for overwrite json file.
-	let f = std::fs::OpenOptions::new()
-		.write(true)
-		.create(true)
-		.open(KEYCHAIN_MAP_FILE_PATH);
-	match f {
-		Ok(keychain_file) => {
-			// write file using serde
-			match serde_json::to_writer_pretty(keychain_file, &keychain_map) {
-				Ok(_value) => {
-					info!("Successfully updated Keychain at best number: {}",best_number);
-				},
-				Err(error) => {
-					info!("Failed to update Keychain,Error Reason: {}",error);
-				}
-			};
-		},
-		Err(_) => {},
-	}
-
-	keychain_map
+	let mut rt = tokio::runtime::Runtime::new().unwrap();
+	let keychain_map_clone = keychain_map.clone();
+	rt.spawn_blocking(move ||{
+		// new a file instance for overwrite json file.
+		let f = std::fs::OpenOptions::new()
+			.write(true)
+			.create(true)
+			.open(KEYCHAIN_MAP_FILE_PATH);
+		match f {
+			Ok(keychain_file) => {
+				// write file using serde
+				match serde_json::to_writer_pretty(keychain_file, &keychain_map_clone) {
+					Ok(_value) => {
+						info!("Successfully updated Keychain at best number: {}",best_number.clone());
+					},
+					Err(error) => {
+						info!("Failed to update Keychain,Error Reason: {}",error);
+					}
+				};
+			},
+			Err(_) => {},
+		}
+	});
+	info!("async function");
 }
 
 /// update pubkey for dest difficulty at best_number
 pub fn update_pubkey(
-	keychain_map: &mut HashMap<Difficulty, HashMap<u32, Vec<u8>>>,
+	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
 	difficulty: &Difficulty,
 	best_number: &u32,
 ){
@@ -252,8 +237,10 @@ pub fn update_pubkey(
 				last_number = item.to_owned();
 				break;
 			}
+			// get last number's pubkey for hex format
+			let last_pubkey_hex = last_number_and_difficulty.get(&last_number).unwrap();
 			// get last number's pubkey for bytes format
-			let last_pubkey_bytes = last_number_and_difficulty.get(&last_number).unwrap();
+			let last_pubkey_bytes = hex::decode(last_pubkey_hex).unwrap();
 			// decode to RawPublicKey struct
 			let last_pubkey = RawPublicKey::decode(&mut &last_pubkey_bytes[..]).unwrap();
 			// define pubkey for iteration
@@ -281,18 +268,39 @@ pub fn update_pubkey(
 		},
 	};
 
+	let last_pubkey_hex = hex::encode(&last_pubkey.encode());
 	// update(mutate or insert) keychain_map
 	if keychain_map.contains_key(&difficulty) {
 		if let Some(keymap) = keychain_map.get_mut(&difficulty) {
-			let mut keymap_tmp = HashMap::<u32, Vec<u8>>::new();
-			keymap_tmp.insert(best_number.to_owned(), last_pubkey.encode());
+			let mut keymap_tmp = HashMap::<u32, String>::new();
+			keymap_tmp.insert(best_number.to_owned(), last_pubkey_hex);
 			*keymap = keymap_tmp;
 		}
 	} else {
-		let mut keymap = HashMap::<u32, Vec<u8>>::new();
-		keymap.insert(best_number.to_owned(), last_pubkey.encode());
+		let mut keymap = HashMap::<u32, String>::new();
+		keymap.insert(best_number.to_owned(), last_pubkey_hex);
 		keychain_map.insert(difficulty.to_owned(), keymap);
 	}
+}
+
+pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
+	// create a file instance for write and read.
+	let f = std::fs::OpenOptions::new()
+		.write(true)
+		.create(true)
+		.read(true)
+		.open(KEYCHAIN_MAP_FILE_PATH);
+	// get keychain map from json file.
+	let default_keychain_map: HashMap<Difficulty, HashMap<u32, String>> =
+		HashMap::<Difficulty, HashMap<u32, String>>::new();
+	let keychain_map: HashMap<Difficulty, HashMap<u32, String>> = match f {
+		Ok(keychain_file) => match serde_json::from_reader(keychain_file) {
+			Ok(keychain_map) => keychain_map,
+			Err(_) => default_keychain_map,
+		},
+		Err(_) => default_keychain_map,
+	};
+	keychain_map
 }
 
 /// Builds a new service for a full client.
@@ -382,6 +390,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
 			let current_backend = backend.clone();
+			let mut keychain_map = keychain_map_from_json().clone();
 			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
@@ -413,12 +422,12 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 					let seal = find_seal();
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
 						// info!("Found seal!");
+						info!("!!!!!!!!!!!!{}",keychain_map.len());
 						//update keychains
 						let blockchain = current_backend.blockchain();
 						let chain_info = blockchain.info();
 						let block_number = chain_info.best_number;
-						let keychain_map =
-							update_keychains(block_number);
+						update_keychains(&mut keychain_map,block_number);
 						let updated_pubkey = get_updated_pubkey(&metadata.difficulty,&keychain_map);
 
 						let mut compute = Compute {
