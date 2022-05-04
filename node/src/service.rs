@@ -25,7 +25,6 @@ use std::fs::File;
 use log::info;
 use tokio::task;
 use std::io::Read;
-use std::str::FromStr;
 use blake3::Hash;
 
 // Our native executor instance.
@@ -197,7 +196,7 @@ pub fn update_keychains(
 	for difficulty_tmp in MIN_DIFFICULTY..(MAX_DIFFICULTY - 1) {
 		update_pubkey(keychain_map, &difficulty_tmp, &best_number);
 	}
-	let mut rt = tokio::runtime::Runtime::new().unwrap();
+	let rt = tokio::runtime::Runtime::new().unwrap();
 	let keychain_map_clone = keychain_map.clone();
 	rt.spawn_blocking(move ||{
 		// new a file instance for overwrite json file.
@@ -206,12 +205,12 @@ pub fn update_keychains(
 			.create(true)
 			.open(KEYCHAIN_MAP_FILE_PATH);
 		match f {
-			Ok(mut keychain_file) => {
+			Ok(keychain_file) => {
 				// write file using serde
 				match serde_json::to_writer_pretty(keychain_file, &keychain_map_clone) {
 					Ok(_value) => {
 						// get cur file hash
-						let mut f_map = File::open(KEYCHAIN_MAP_FILE_PATH);
+						let f_map = File::open(KEYCHAIN_MAP_FILE_PATH);
 						let mut contents = String::new();
 						if f_map.is_ok() {
 							f_map.unwrap().read_to_string(&mut contents).unwrap();
@@ -248,7 +247,6 @@ pub fn update_keychains(
 			Err(_) => {},
 		}
 	});
-	info!("async function");
 }
 
 /// update pubkey for dest difficulty at best_number
@@ -330,7 +328,7 @@ pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
 	// old hash bytes
 	let mut old_hash_bytes = vec![];
 	if f_hash.is_ok() {
-		let mut file_hash = f_hash.as_ref().unwrap();
+		let file_hash = f_hash.as_ref().unwrap();
 		old_hash_bytes = match serde_json::from_reader(file_hash) {
 			Ok(file_hash_bytes) => {
 				file_hash_bytes
@@ -372,7 +370,7 @@ pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
 					Ok(keychain_map) => {
 						keychain_map
 					},
-					Err(error) => {
+					Err(_) => {
 						default_keychain_map.clone()
 					},
 				};
@@ -509,7 +507,6 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 					let seal = find_seal();
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
 						// info!("Found seal!");
-						info!("!!!!!!!!!!!!{}",keychain_map.len());
 						//update keychains
 						let blockchain = current_backend.blockchain();
 						let chain_info = blockchain.info();
