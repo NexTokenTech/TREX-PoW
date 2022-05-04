@@ -5,7 +5,7 @@ use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
 use capsule_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
 use cp_constants::{
 	Difficulty, KEYCHAIN_MAP_FILE_PATH, MAX_DIFFICULTY, MINNING_WORKER_BUILD_TIME,
-	MINNING_WORKER_TIMEOUT, MIN_DIFFICULTY,
+	MINNING_WORKER_TIMEOUT, MIN_DIFFICULTY,KEYCHAIN_HASH_FILE_PATH
 };
 use elgamal_capsule::{KeyGenerator, RawPublicKey};
 use futures::executor::block_on;
@@ -21,8 +21,12 @@ use sp_core::{Decode, Encode, U256};
 use sp_runtime::generic::BlockId;
 use std::collections::HashMap;
 use std::{sync::Arc, thread, time::Duration};
+use std::fs::File;
 use log::info;
 use tokio::task;
+use std::io::Read;
+use std::str::FromStr;
+use blake3::Hash;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -202,10 +206,38 @@ pub fn update_keychains(
 			.create(true)
 			.open(KEYCHAIN_MAP_FILE_PATH);
 		match f {
-			Ok(keychain_file) => {
+			Ok(mut keychain_file) => {
 				// write file using serde
 				match serde_json::to_writer_pretty(keychain_file, &keychain_map_clone) {
 					Ok(_value) => {
+						// get cur file hash
+						let mut f_map = File::open(KEYCHAIN_MAP_FILE_PATH);
+						let mut contents = String::new();
+						if f_map.is_ok() {
+							f_map.unwrap().read_to_string(&mut contents).unwrap();
+						}
+						let hash = stirng_to_blake3(contents);
+
+						// overwrite hash to KEYCHAIN_HASH_FILE_PATH
+						std::fs::remove_file(KEYCHAIN_HASH_FILE_PATH);
+						let f_hash = std::fs::OpenOptions::new()
+							.write(true)
+							.create(true)
+							.read(true)
+							.open(KEYCHAIN_HASH_FILE_PATH);
+
+						if f_hash.is_ok() {
+							let file_hash = f_hash.unwrap();
+							// write file using serde
+							match serde_json::to_writer(file_hash, &hash.as_bytes()) {
+								Ok(_value) => {
+									info!("Successfully updated hash for keychain file");
+								},
+								Err(error) => {
+									info!("Failed to update hash for keychain file,Error Reason: {}",error);
+								}
+							};
+						}
 						info!("Successfully updated Keychain at best number: {}",best_number.clone());
 					},
 					Err(error) => {
@@ -284,6 +316,28 @@ pub fn update_pubkey(
 }
 
 pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
+	// open file which stored old file hash
+	let f_hash = std::fs::OpenOptions::new()
+		.write(true)
+		.create(true)
+		.read(true)
+		.open(KEYCHAIN_HASH_FILE_PATH);
+
+	// default keychain map
+	let default_keychain_map: HashMap<Difficulty, HashMap<u32, String>> =
+		HashMap::<Difficulty, HashMap<u32, String>>::new();
+
+	// old hash bytes
+	let mut old_hash_bytes = vec![];
+	if f_hash.is_ok() {
+		let mut file_hash = f_hash.as_ref().unwrap();
+		old_hash_bytes = match serde_json::from_reader(file_hash) {
+			Ok(file_hash_bytes) => {
+				file_hash_bytes
+			},
+			Err(_) => vec![],
+		};
+	}
 	// create a file instance for write and read.
 	let f = std::fs::OpenOptions::new()
 		.write(true)
@@ -291,16 +345,49 @@ pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
 		.read(true)
 		.open(KEYCHAIN_MAP_FILE_PATH);
 	// get keychain map from json file.
-	let default_keychain_map: HashMap<Difficulty, HashMap<u32, String>> =
-		HashMap::<Difficulty, HashMap<u32, String>>::new();
-	let keychain_map: HashMap<Difficulty, HashMap<u32, String>> = match f {
-		Ok(keychain_file) => match serde_json::from_reader(keychain_file) {
-			Ok(keychain_map) => keychain_map,
-			Err(_) => default_keychain_map,
-		},
-		Err(_) => default_keychain_map,
-	};
-	keychain_map
+	if f.is_ok() {
+		let mut keychain_file = f.unwrap();
+		// use to record cur hash == old hash or not.
+		let mut parse_compare = true;
+
+		// get cur hash
+		let mut contents = String::new();
+		keychain_file.read_to_string(&mut contents).unwrap();
+		let hash = stirng_to_blake3(contents);
+
+		// get parse_compare
+		if old_hash_bytes.len() != 0 {
+			let old_hash_u8_bytes: &[u8; 32] = &(&old_hash_bytes[..]).try_into().unwrap();
+			let old_hash = Hash::from(*old_hash_u8_bytes);
+			parse_compare = old_hash == hash;
+		}
+
+		if parse_compare == true {
+			let f = std::fs::OpenOptions::new()
+				.read(true)
+				.open(KEYCHAIN_MAP_FILE_PATH);
+			if f.is_ok() {
+				let keychain_file = f.unwrap();
+				let keychain_map_read = match serde_json::from_reader(keychain_file) {
+					Ok(keychain_map) => {
+						keychain_map
+					},
+					Err(error) => {
+						default_keychain_map.clone()
+					},
+				};
+				return keychain_map_read
+			}
+		}
+	}
+	default_keychain_map
+}
+
+pub fn stirng_to_blake3(keychain_str:String) -> Hash{
+	let example_key = [42u8; 32];
+	let hashmap_bytes = keychain_str.as_bytes();
+	let hash = blake3::keyed_hash(&example_key,hashmap_bytes);
+	hash
 }
 
 /// Builds a new service for a full client.
