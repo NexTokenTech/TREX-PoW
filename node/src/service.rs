@@ -5,7 +5,7 @@ use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
 use capsule_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
 use cp_constants::{
 	Difficulty, KEYCHAIN_MAP_FILE_PATH, MAX_DIFFICULTY, MINNING_WORKER_BUILD_TIME,
-	MINNING_WORKER_TIMEOUT, MIN_DIFFICULTY,KEYCHAIN_HASH_FILE_PATH
+	MINNING_WORKER_TIMEOUT, MIN_DIFFICULTY,KEYCHAIN_HASH_FILE_PATH,KEYCHAIN_HASH_KEY
 };
 use elgamal_capsule::{KeyGenerator, RawPublicKey};
 use futures::executor::block_on;
@@ -204,47 +204,46 @@ pub fn update_keychains(
 			.write(true)
 			.create(true)
 			.open(KEYCHAIN_MAP_FILE_PATH);
-		match f {
-			Ok(keychain_file) => {
-				// write file using serde
-				match serde_json::to_writer_pretty(keychain_file, &keychain_map_clone) {
-					Ok(_value) => {
-						// get cur file hash
-						let f_map = File::open(KEYCHAIN_MAP_FILE_PATH);
-						let mut contents = String::new();
-						if f_map.is_ok() {
-							f_map.unwrap().read_to_string(&mut contents).unwrap();
-						}
-						let hash = stirng_to_blake3(contents);
-
-						// overwrite hash to KEYCHAIN_HASH_FILE_PATH
-						std::fs::remove_file(KEYCHAIN_HASH_FILE_PATH);
-						let f_hash = std::fs::OpenOptions::new()
-							.write(true)
-							.create(true)
-							.read(true)
-							.open(KEYCHAIN_HASH_FILE_PATH);
-
-						if f_hash.is_ok() {
-							let file_hash = f_hash.unwrap();
-							// write file using serde
-							match serde_json::to_writer(file_hash, &hash.as_bytes()) {
-								Ok(_value) => {
-									info!("Successfully updated hash for keychain file");
-								},
-								Err(error) => {
-									info!("Failed to update hash for keychain file,Error Reason: {}",error);
-								}
-							};
-						}
-						info!("Successfully updated Keychain at best number: {}",best_number.clone());
-					},
-					Err(error) => {
-						info!("Failed to update Keychain,Error Reason: {}",error);
+		if f.is_ok() {
+			let keychain_file = f.unwrap();
+			// write file using serde
+			match serde_json::to_writer_pretty(keychain_file, &keychain_map_clone) {
+				Ok(_) => {
+					// get cur file hash
+					let f_map = File::open(KEYCHAIN_MAP_FILE_PATH);
+					let mut contents = String::new();
+					if f_map.is_ok() {
+						f_map.unwrap().read_to_string(&mut contents).unwrap();
 					}
-				};
-			},
-			Err(_) => {},
+					let hash = string_to_blake3(&contents);
+
+					// overwrite hash to KEYCHAIN_HASH_FILE_PATH
+					// std::fs::remove_file(KEYCHAIN_HASH_FILE_PATH);
+					let f_hash = std::fs::OpenOptions::new()
+						.write(true)
+						.create(true)
+						.read(true)
+						.truncate(true)
+						.open(KEYCHAIN_HASH_FILE_PATH);
+
+					if f_hash.is_ok() {
+						let file_hash = f_hash.unwrap();
+						// write file using serde
+						match serde_json::to_writer(file_hash, &hash.as_bytes()) {
+							Ok(_value) => {
+								info!("Successfully updated hash for keychain file");
+							},
+							Err(error) => {
+								info!("Failed to update hash for keychain file,Error Reason: {}",error);
+							}
+						};
+					}
+					info!("Successfully updated Keychain at best number: {}",best_number.clone());
+				},
+				Err(error) => {
+					info!("Failed to update Keychain,Error Reason: {}",error);
+				}
+			};
 		}
 	});
 }
@@ -326,10 +325,10 @@ pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
 		HashMap::<Difficulty, HashMap<u32, String>>::new();
 
 	// old hash bytes
-	let mut old_hash_bytes = vec![];
+	let mut old_file_hash_bytes = vec![];
 	if f_hash.is_ok() {
 		let file_hash = f_hash.as_ref().unwrap();
-		old_hash_bytes = match serde_json::from_reader(file_hash) {
+		old_file_hash_bytes = match serde_json::from_reader(file_hash) {
 			Ok(file_hash_bytes) => {
 				file_hash_bytes
 			},
@@ -337,54 +336,40 @@ pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
 		};
 	}
 	// create a file instance for write and read.
-	let f = std::fs::OpenOptions::new()
+	let f_keychain = std::fs::OpenOptions::new()
 		.write(true)
 		.create(true)
 		.read(true)
 		.open(KEYCHAIN_MAP_FILE_PATH);
 	// get keychain map from json file.
-	if f.is_ok() {
-		let mut keychain_file = f.unwrap();
+	if f_keychain.is_ok() {
+		let mut keychain_file = f_keychain.unwrap();
 		// use to record cur hash == old hash or not.
-		let mut parse_compare = true;
+		let mut is_validate = true;
 
-		// get cur hash
+		// get cur keychain map file hash
 		let mut contents = String::new();
 		keychain_file.read_to_string(&mut contents).unwrap();
-		let hash = stirng_to_blake3(contents);
+		let cur_file_hash = string_to_blake3(&contents);
 
-		// get parse_compare
-		if old_hash_bytes.len() != 0 {
-			let old_hash_u8_bytes: &[u8; 32] = &(&old_hash_bytes[..]).try_into().unwrap();
-			let old_hash = Hash::from(*old_hash_u8_bytes);
-			parse_compare = old_hash == hash;
+		// get is_validate if old hash file is not empty.
+		if old_file_hash_bytes.len() != 0 {
+			let old_file_hash_u8_bytes: &[u8; 32] = &(&old_file_hash_bytes[..]).try_into().unwrap();
+			let old_file_hash = Hash::from(*old_file_hash_u8_bytes);
+			is_validate = old_file_hash == cur_file_hash;
 		}
 
-		if parse_compare == true {
-			let f = std::fs::OpenOptions::new()
-				.read(true)
-				.open(KEYCHAIN_MAP_FILE_PATH);
-			if f.is_ok() {
-				let keychain_file = f.unwrap();
-				let keychain_map_read = match serde_json::from_reader(keychain_file) {
-					Ok(keychain_map) => {
-						keychain_map
-					},
-					Err(_) => {
-						default_keychain_map.clone()
-					},
-				};
-				return keychain_map_read
-			}
+		if is_validate == true {
+			let keychain_map_read = serde_json::from_str(&contents).unwrap_or(default_keychain_map.clone());
+			return keychain_map_read
 		}
 	}
 	default_keychain_map
 }
 
-pub fn stirng_to_blake3(keychain_str:String) -> Hash{
-	let example_key = [42u8; 32];
-	let hashmap_bytes = keychain_str.as_bytes();
-	let hash = blake3::keyed_hash(&example_key,hashmap_bytes);
+pub fn string_to_blake3(keychain_file_str:&str) -> Hash{
+	let hashmap_bytes = keychain_file_str.as_bytes();
+	let hash = blake3::keyed_hash(&KEYCHAIN_HASH_KEY,hashmap_bytes);
 	hash
 }
 
