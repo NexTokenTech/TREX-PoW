@@ -2,8 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cp_constants::{
-	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW,
-	MIN_DIFFICULTY,
+	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, MAX_DIFFICULTY, MIN_DIFFICULTY,
 };
 use fast_math::log2;
 use frame_support::traits::OnTimestampSet;
@@ -120,6 +119,10 @@ pub mod pallet {
 			// get the window current_height
 			let mut current_height = CurrentHeight::<T>::get().unwrap_or(0u32);
 
+			// panic if current height pointer is over the boundray.
+			if current_height >= DIFFICULTY_ADJUST_WINDOW {
+				panic!("current height pointer out of bounds!");
+			}
 			// It's time to adjust the difficulty
 			if current_height == (DIFFICULTY_ADJUST_WINDOW - 1) as u32 {
 				// Set DIFFICULTY_ADJUST_WINDOW last element
@@ -154,7 +157,14 @@ pub mod pallet {
 
 				// Difficulty adjustment and storage
 				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT) as i128 + adj_ts;
-				let difficulty_final = difficulty as Difficulty;
+				let mut difficulty_final = MIN_DIFFICULTY;
+				if difficulty < MIN_DIFFICULTY {
+					difficulty_final = MIN_DIFFICULTY;
+				} else if difficulty > MAX_DIFFICULTY {
+					difficulty_final = MAX_DIFFICULTY;
+				} else {
+					difficulty_final = difficulty as u128;
+				}
 
 				// current_height to zero
 				current_height = 0;
