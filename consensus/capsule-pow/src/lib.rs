@@ -4,7 +4,7 @@ mod utils;
 use codec::{Decode, Encode};
 use cp_constants::Difficulty;
 use elgamal_capsule::{
-	elgamal::{RawKey, RawPublicKey, PublicKey},
+	elgamal::{RawKey, RawPublicKey, PublicKey, PrivateKey},
 	KeyGenerator,
 };
 use rug::{integer::Order, rand::RandState, Complete, Integer};
@@ -215,26 +215,55 @@ impl CycleFinding<Integer, U256> for State<Integer> {
 }
 
 /// A verifier contains methods to validate mining results.
-pub struct SolutionVerifier;
+pub struct SolutionVerifier{
+	pub pubkey: PublicKey
+}
 
 impl SolutionVerifier {
 	/// Derive one side of the value for the equation in the pollard rho method.
-	fn derive(&self, solution: &Solution<Integer>, pubkey: &PublicKey) -> Integer {
-		let g_a_p = Integer::from(pubkey.g.pow_mod_ref(&solution.a, &pubkey.p).unwrap());
-		let h_b_p = Integer::from(pubkey.h.pow_mod_ref(&solution.b, &pubkey.p).unwrap());
-		(g_a_p * h_b_p).div_rem_euc_ref(&pubkey.p).complete().1
+	fn derive(&self, solution: &Solution<Integer>) -> Integer {
+		let g_a_p = Integer::from(self.pubkey.g.pow_mod_ref(&solution.a, &self.pubkey.p).unwrap());
+		let h_b_p = Integer::from(self.pubkey.h.pow_mod_ref(&solution.b, &self.pubkey.p).unwrap());
+		(g_a_p * h_b_p).div_rem_euc_ref(&self.pubkey.p).complete().1
 	}
 
 	/// Verify the validation of solutions and
-	fn verify(&self, solutions: &Solutions<Integer>, pubkey: &PublicKey, header: &Compute) -> bool {
-		let y_1 = self.derive(&solutions.0, &pubkey);
-		let y_2 = self.derive(&solutions.1, &pubkey);
+	fn verify(&self, solutions: &Solutions<Integer>, header: &Compute) -> bool {
+		let y_1 = self.derive(&solutions.0);
+		let y_2 = self.derive(&solutions.1);
 		// if solutions are valid, verify the hash of nonce.
-		let hash_i = header.hash_integer().div_rem_euc(pubkey.p.clone()).1;
+		let hash_i = header.hash_integer().div_rem_euc(self.pubkey.p.clone()).1;
 		let nonce = u256_bigint(&header.nonce);
-		let state = State::<Integer>::from_pub_key(pubkey.clone(), Integer::from(1));
+		let state = State::<Integer>::from_pub_key(self.pubkey.clone(), Integer::from(1));
 		let work = state.func_f(&hash_i, &nonce).unwrap();
 		y_1 == y_2 && y_1 == work
+	}
+
+	fn key_gen(&self, solutions: &Solutions<Integer>) -> Option<PrivateKey>{
+		if let Some(key) = utils::eqs_solvers(
+			&solutions.0.a,
+			&solutions.0.b,
+			&solutions.1.a,
+			&solutions.1.b,
+			&solutions.1.n,
+		) {
+			let generator = self.pubkey.g.clone();
+			let validate = Integer::from(generator.pow_mod_ref(&key, &self.pubkey.p).unwrap());
+			let new_key: Integer;
+			if validate != self.pubkey.h {
+				new_key = key + &solutions.1.n;
+			} else {
+				new_key = key;
+			}
+			Some(PrivateKey{
+				p: self.pubkey.p.clone(),
+				g: self.pubkey.g.clone(),
+				x: new_key,
+				bit_length: self.pubkey.bit_length.clone()
+			})
+		} else {
+			None
+		}
 	}
 }
 
@@ -270,12 +299,12 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
 		let pubkey = PublicKey::from_raw(raw_key);
-		let verifier = SolutionVerifier;
+		let verifier = SolutionVerifier {pubkey};
 		let solutions = (
 			Solution::<Integer>::from_u256(&seal.solutions.0),
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
-		if verifier.verify(&solutions, &pubkey, &header) {
+		if verifier.verify(&solutions,  &header) {
 			return Ok(true);
 		}
 
@@ -346,12 +375,12 @@ where
 		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
 		let pubkey = PublicKey::from_raw(raw_key);
-		let verifier = SolutionVerifier;
+		let verifier = SolutionVerifier {pubkey};
 		let solutions = (
 			Solution::<Integer>::from_u256(&seal.solutions.0),
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
-		if verifier.verify(&solutions, &pubkey, &header) {
+		if verifier.verify(&solutions, &header) {
 			return Ok(true);
 		}
 
@@ -391,19 +420,61 @@ mod tests {
 	use rug::Integer;
 
 	#[test]
-	fn try_pollard_rho() {
+	fn try_pollard_rho_with_key_gen() {
 		// generate a random public key.
+		let difficulty = 24u32;
+		let p = Integer::from(1);
+		let g = Integer::from(1);
+		let h = Integer::from(1);
+		let old_pubkey = PublicKey { p, g, h, bit_length: difficulty };
+		let mut rand = RandState::new_mersenne_twister();
+		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand,difficulty);
+		let pubkey = PublicKey::from_raw(raw_pubkey);
+		println!("{:?}",pubkey);
+		let mut loop_count = 0;
+		let limit = 10;
+		let mut seed = Integer::from(1);
+		let mut compute = Compute {
+			difficulty: difficulty as Difficulty,
+			pre_hash: H256::from([1u8; 32]),
+			nonce: U256::from(1i32),
+		};
+		loop {
+			if let Some(solutions) = pollard_rho(pubkey.clone(), &mut compute, seed.clone()) {
+				let verifier = SolutionVerifier { pubkey };
+				if let Some(key) = verifier.key_gen(&solutions) {
+					let validate = Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
+					assert_eq!(
+						&validate, &verifier.pubkey.h,
+						"The found private key is not valid!"
+					);
+					return;
+				} else {
+					panic!("Failed to derive private key!")
+				}
+			} else if loop_count < limit {
+				loop_count += 1;
+				seed += 1;
+			} else {
+				panic!("Cannot find private key!")
+			}
+		}
+	}
+
+	#[test]
+	fn try_pollard_rho() {
+		let difficulty = 24u32;
 		let p = Integer::from(383);
 		let g = Integer::from(2);
 		let num = Integer::from(57);
 		let res = g.pow_mod_ref(&num, &p).unwrap();
 		let h = Integer::from(res);
-		let pubkey = PublicKey { p, g, h, bit_length: 32 };
+		let pubkey = PublicKey { p, g, h, bit_length: difficulty };
 		let mut loop_count = 0;
 		let limit = 10;
 		let mut seed = Integer::from(1);
 		let mut compute = Compute {
-			difficulty: 48 as Difficulty,
+			difficulty: difficulty as Difficulty,
 			pre_hash: H256::from([1u8; 32]),
 			nonce: U256::from(0i32),
 		};
