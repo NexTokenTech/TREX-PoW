@@ -196,9 +196,13 @@ pub fn update_keychains(
 	for difficulty_tmp in MIN_DIFFICULTY..(MAX_DIFFICULTY - 1) {
 		update_pubkey(keychain_map, &difficulty_tmp, &best_number);
 	}
-	let rt = tokio::runtime::Runtime::new().unwrap();
+
 	let keychain_map_clone = keychain_map.clone();
-	rt.spawn_blocking(move ||{
+	// Is to generate an asynchronous task directly in the current runtime
+	let rt = tokio::runtime::Runtime::new().unwrap();
+	let _guard = rt.enter();
+	task::spawn(async move{
+		info!("task spawn");
 		// new a file instance for overwrite json file.
 		let f = std::fs::OpenOptions::new()
 			.write(true)
@@ -246,6 +250,7 @@ pub fn update_keychains(
 			};
 		}
 	});
+	info!("code after task::spawn");
 }
 
 /// update pubkey for dest difficulty at best_number
