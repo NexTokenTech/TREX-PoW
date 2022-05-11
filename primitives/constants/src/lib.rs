@@ -51,7 +51,9 @@ pub const HOURS: u32 = 60;
 pub const DAYS: u32 = 24 * HOURS;
 
 pub const KEYCHAIN_MAP_FILE_PATH: &str = "keychain_map.json";
+pub const KEYCHAIN_HASH_FILE_PATH: &str = "keychain_hash.txt";
 pub const UPDATE_KEY_CHAIN_RANGE: u32 = 3;
 pub const MINNING_WORKER_TIMEOUT: u64 = 10;
 pub const MINNING_WORKER_BUILD_TIME: u64 = 10;
+pub const KEYCHAIN_HASH_KEY:[u8;32] = [42u8; 32];
 
