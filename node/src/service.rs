@@ -1,14 +1,16 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
+use blake3::Hash;
 use capsule_pow::genesis::genesis_seal;
 use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
 use capsule_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
 use cp_constants::{
-	Difficulty, KEYCHAIN_MAP_FILE_PATH, MAX_DIFFICULTY, MINNING_WORKER_BUILD_TIME,
-	MINNING_WORKER_TIMEOUT, MIN_DIFFICULTY,KEYCHAIN_HASH_FILE_PATH,KEYCHAIN_HASH_KEY
+	Difficulty, KEYCHAIN_HASH_FILE_PATH, KEYCHAIN_HASH_KEY, KEYCHAIN_MAP_FILE_PATH, MAX_DIFFICULTY,
+	MINNING_WORKER_BUILD_TIME, MINNING_WORKER_TIMEOUT, MIN_DIFFICULTY,
 };
 use elgamal_capsule::{KeyGenerator, RawPublicKey};
 use futures::executor::block_on;
+use futures::join;
 use rug::rand::RandState;
 use sc_client_api::{Backend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
@@ -19,13 +21,12 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_blockchain::HeaderBackend;
 use sp_core::{Decode, Encode, U256};
 use sp_runtime::generic::BlockId;
-use std::collections::HashMap;
-use std::{sync::Arc, thread, time::Duration};
-use std::fs::File;
-use log::info;
-use tokio::task;
-use std::io::Read;
-use blake3::Hash;
+use std::{collections::HashMap, io::Read, sync::Arc, thread, time::Duration};
+
+use async_std::{
+	fs::{File, OpenOptions},
+	prelude::*,
+};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -160,9 +161,9 @@ pub fn new_partial(
 
 /// return pubkey for current difficulty at best number.
 pub fn get_updated_pubkey(
-	difficulty:&Difficulty,
-	keychain_map:&HashMap<Difficulty, HashMap<u32, String>>
-) -> RawPublicKey{
+	difficulty: &Difficulty,
+	keychain_map: &HashMap<Difficulty, HashMap<u32, String>>,
+) -> RawPublicKey {
 	let last_pubkey = match keychain_map.get(difficulty) {
 		Some(last_number_and_difficulty) => {
 			// get last number
@@ -192,65 +193,75 @@ pub fn get_updated_pubkey(
 pub fn update_keychains(
 	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
 	best_number: BlockNumber,
-){
+) {
+	dbg!("start update pubkey");
+	let mut keychain_map_clone = keychain_map.clone();
+	let option_file = block_on(run_tasks(keychain_map, best_number));
+	if let Some(file) = option_file {
+		block_on(write_keychain_to_file(&mut keychain_map_clone, file));
+	}
+	dbg!("finished");
+}
+async fn run_tasks(
+	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
+	best_number: BlockNumber,
+) -> Option<File> {
+	// Join the two futures together
+	let result = join!(task_open_file(), task_pubkey(keychain_map, best_number));
+	result.0
+}
+pub async fn task_pubkey(
+	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
+	best_number: BlockNumber,
+) {
 	for difficulty_tmp in MIN_DIFFICULTY..(MAX_DIFFICULTY - 1) {
 		update_pubkey(keychain_map, &difficulty_tmp, &best_number);
 	}
+	dbg!("task1");
+}
 
-	let keychain_map_clone = keychain_map.clone();
-	// Is to generate an asynchronous task directly in the current runtime
-	let rt = tokio::runtime::Runtime::new().unwrap();
-	let _guard = rt.enter();
-	task::spawn(async move{
-		info!("task spawn");
-		// new a file instance for overwrite json file.
-		let f = std::fs::OpenOptions::new()
-			.write(true)
-			.create(true)
-			.open(KEYCHAIN_MAP_FILE_PATH);
-		if f.is_ok() {
-			let keychain_file = f.unwrap();
-			// write file using serde
-			match serde_json::to_writer_pretty(keychain_file, &keychain_map_clone) {
-				Ok(_) => {
-					// get cur file hash
-					let f_map = File::open(KEYCHAIN_MAP_FILE_PATH);
-					let mut contents = String::new();
-					if f_map.is_ok() {
-						f_map.unwrap().read_to_string(&mut contents).unwrap();
-					}
-					let hash = string_to_blake3(&contents);
+pub async fn task_open_file() -> Option<File> {
+	let f = OpenOptions::new()
+		.write(true)
+		.read(true)
+		.create(true)
+		.open(KEYCHAIN_MAP_FILE_PATH)
+		.await;
+	dbg!("task2 finished");
+	if f.is_ok() {
+		Some(f.unwrap())
+	} else {
+		None
+	}
+}
 
-					// overwrite hash to KEYCHAIN_HASH_FILE_PATH
-					// std::fs::remove_file(KEYCHAIN_HASH_FILE_PATH);
-					let f_hash = std::fs::OpenOptions::new()
-						.write(true)
-						.create(true)
-						.read(true)
-						.truncate(true)
-						.open(KEYCHAIN_HASH_FILE_PATH);
+pub async fn write_keychain_to_file(
+	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
+	mut keychain_file: File,
+) {
+	let json_str = serde_json::to_string(keychain_map).unwrap_or("".to_string());
+	let json_str_bytes = json_str.as_bytes();
+	let _write_result = keychain_file.write_all(json_str_bytes).await;
 
-					if f_hash.is_ok() {
-						let file_hash = f_hash.unwrap();
-						// write file using serde
-						match serde_json::to_writer(file_hash, &hash.as_bytes()) {
-							Ok(_value) => {
-								info!("Successfully updated hash for keychain file");
-							},
-							Err(error) => {
-								info!("Failed to update hash for keychain file,Error Reason: {}",error);
-							}
-						};
-					}
-					info!("Successfully updated Keychain at best number: {}",best_number.clone());
-				},
-				Err(error) => {
-					info!("Failed to update Keychain,Error Reason: {}",error);
-				}
-			};
-		}
-	});
-	info!("code after task::spawn");
+	let contents = String::from_utf8(json_str_bytes.to_vec()).unwrap_or("".to_string());
+	let hash = string_to_blake3(&contents);
+
+	let f_hash = OpenOptions::new()
+		.write(true)
+		.create(true)
+		.read(true)
+		.truncate(true)
+		.open(KEYCHAIN_HASH_FILE_PATH)
+		.await;
+
+	if f_hash.is_ok() {
+		let mut file_hash = f_hash.unwrap();
+		let hash_value = serde_json::to_string(&hash.as_bytes()).unwrap_or("".to_string());
+		let _result = file_hash.write_all(hash_value.as_bytes()).await;
+		// write file using serde
+		dbg!("Successfully updated hash for keychain file");
+	}
+	dbg!("Successfully updated Keychain at best number");
 }
 
 /// update pubkey for dest difficulty at best_number
@@ -258,7 +269,7 @@ pub fn update_pubkey(
 	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
 	difficulty: &Difficulty,
 	best_number: &u32,
-){
+) {
 	// init rand instance
 	let mut rand = RandState::new_mersenne_twister();
 
@@ -317,7 +328,7 @@ pub fn update_pubkey(
 	}
 }
 
-pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
+pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>> {
 	// open file which stored old file hash
 	let f_hash = std::fs::OpenOptions::new()
 		.write(true)
@@ -334,9 +345,7 @@ pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
 	if f_hash.is_ok() {
 		let file_hash = f_hash.as_ref().unwrap();
 		old_file_hash_bytes = match serde_json::from_reader(file_hash) {
-			Ok(file_hash_bytes) => {
-				file_hash_bytes
-			},
+			Ok(file_hash_bytes) => file_hash_bytes,
 			Err(_) => vec![],
 		};
 	}
@@ -365,16 +374,17 @@ pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>>{
 		}
 
 		if is_validate == true {
-			let keychain_map_read = serde_json::from_str(&contents).unwrap_or(default_keychain_map.clone());
-			return keychain_map_read
+			let keychain_map_read =
+				serde_json::from_str(&contents).unwrap_or(default_keychain_map.clone());
+			return keychain_map_read;
 		}
 	}
 	default_keychain_map
 }
 
-pub fn string_to_blake3(keychain_file_str:&str) -> Hash{
+pub fn string_to_blake3(keychain_file_str: &str) -> Hash {
 	let hashmap_bytes = keychain_file_str.as_bytes();
-	let hash = blake3::keyed_hash(&KEYCHAIN_HASH_KEY,hashmap_bytes);
+	let hash = blake3::keyed_hash(&KEYCHAIN_HASH_KEY, hashmap_bytes);
 	hash
 }
 
@@ -501,8 +511,10 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 						let blockchain = current_backend.blockchain();
 						let chain_info = blockchain.info();
 						let block_number = chain_info.best_number;
-						update_keychains(&mut keychain_map,block_number);
-						let updated_pubkey = get_updated_pubkey(&metadata.difficulty,&keychain_map);
+						update_keychains(&mut keychain_map, block_number);
+						dbg!("I get keychain here");
+						let updated_pubkey =
+							get_updated_pubkey(&metadata.difficulty, &keychain_map);
 
 						let mut compute = Compute {
 							difficulty: metadata.difficulty,
