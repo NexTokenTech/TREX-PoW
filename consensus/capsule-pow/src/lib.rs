@@ -1,6 +1,6 @@
-mod generic;
+pub mod generic;
 pub mod genesis;
-mod utils;
+pub mod utils;
 use codec::{Decode, Encode};
 use cp_constants::Difficulty;
 use elgamal_capsule::{
@@ -10,12 +10,12 @@ use elgamal_capsule::{
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
 use sc_consensus_pow::{Error, PowAlgorithm};
-use sha2::{Digest, Sha256};
 use sp_api::ProvideRuntimeApi;
 use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
+use blake3;
 
 // local packages.
 pub use crate::generic::{
@@ -144,10 +144,9 @@ impl Hash<Integer, U256> for Compute {
 	fn hash_integer(&self) -> Integer {
 		// digest nonce by hashing with header data.
 		let data = &self.encode()[..];
-		let mut hasher = Sha256::new();
-		hasher.update(&data);
+		let hash = blake3::hash(&data);
 		// convert hash results to integer in little endian order.
-		Integer::from_digits(hasher.finalize().as_slice(), Order::Lsf)
+		Integer::from_digits(hash.as_bytes(), Order::Lsf)
 	}
 }
 
@@ -239,7 +238,7 @@ impl SolutionVerifier {
 		y_1 == y_2 && y_1 == work
 	}
 
-	fn key_gen(&self, solutions: &Solutions<Integer>) -> Option<PrivateKey>{
+	pub fn key_gen(&self, solutions: &Solutions<Integer>) -> Option<PrivateKey>{
 		if let Some(key) = utils::eqs_solvers(
 			&solutions.0.a,
 			&solutions.0.b,
@@ -388,7 +387,7 @@ where
 	}
 }
 
-fn pollard_rho<C: Clone + Hash<Integer, U256>>(
+pub fn pollard_rho<C: Clone + Hash<Integer, U256>>(
 	pubkey: PublicKey,
 	compute: &mut C,
 	seed: Integer,
@@ -462,47 +461,15 @@ mod tests {
 	}
 
 	#[test]
-	fn try_pollard_rho() {
-		let difficulty = 24u32;
-		let p = Integer::from(383);
-		let g = Integer::from(2);
-		let num = Integer::from(57);
-		let res = g.pow_mod_ref(&num, &p).unwrap();
-		let h = Integer::from(res);
-		let pubkey = PublicKey { p, g, h, bit_length: difficulty };
-		let mut loop_count = 0;
-		let limit = 10;
-		let mut seed = Integer::from(1);
-		let mut compute = Compute {
-			difficulty: difficulty as Difficulty,
-			pre_hash: H256::from([1u8; 32]),
-			nonce: U256::from(0i32),
-		};
-		loop {
-			if let Some(solutions) = pollard_rho(pubkey.clone(), &mut compute, seed.clone()) {
-				if let Some(key) = eqs_solvers(
-					&solutions.0.a,
-					&solutions.0.b,
-					&solutions.1.a,
-					&solutions.1.b,
-					&solutions.1.n,
-				) {
-					let validate = Integer::from(pubkey.g.pow_mod_ref(&key, &pubkey.p).unwrap());
-					assert_eq!(
-						&validate, &pubkey.h,
-						"The found key {} is not the original key {}",
-						key, num
-					);
-					return;
-				} else {
-					panic!("Failed to derive private key!")
-				}
-			} else if loop_count < limit {
-				loop_count += 1;
-				seed += 1;
-			} else {
-				panic!("Cannot find private key!")
-			}
-		}
+	fn gen_pub_key(){
+		let difficulty = 39u32;
+		let p = Integer::from(1);
+		let g = Integer::from(1);
+		let h = Integer::from(1);
+		let old_pubkey = PublicKey { p, g, h, bit_length: difficulty };
+		let mut rand = RandState::new_mersenne_twister();
+		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand,difficulty);
+		let pubkey = PublicKey::from_raw(raw_pubkey);
+		println!("{:?}",pubkey);
 	}
 }
