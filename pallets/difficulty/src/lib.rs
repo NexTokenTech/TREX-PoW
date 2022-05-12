@@ -1,4 +1,5 @@
 #![feature(associated_type_defaults)]
+#![feature(mixed_integer_ops)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cp_constants::{
@@ -159,9 +160,9 @@ pub mod pallet {
 				// Difficulty adjustment and storage
 				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT).checked_add_signed(adj_ts).unwrap_or(0u128);
 				let mut difficulty_final = MIN_DIFFICULTY;
-				if difficulty < MIN_DIFFICULTY as i128{
+				if difficulty < MIN_DIFFICULTY{
 					difficulty_final = MIN_DIFFICULTY;
-				} else if difficulty > MAX_DIFFICULTY as i128 {
+				} else if difficulty > MAX_DIFFICULTY {
 					difficulty_final = MAX_DIFFICULTY;
 				} else {
 					difficulty_final = difficulty as u128;

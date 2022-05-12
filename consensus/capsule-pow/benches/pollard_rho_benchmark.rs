@@ -6,7 +6,7 @@ use elgamal_capsule::{
     }
 };
 use rug::{integer::Order,Integer,rand::RandState};
-use capsule_pow::{generic::Hash, pollard_rho, SolutionVerifier};//Compute as Blake3Compute
+use capsule_pow::{Compute as Blake3Compute, generic::Hash, pollard_rho, SolutionVerifier};
 use cp_constants::Difficulty;
 use sp_core::{H256, U256};
 use capsule_pow::utils::{bigint_u256};
@@ -40,33 +40,6 @@ impl Hash<Integer, U256> for Sha256Compute {
         hasher.update(&data);
         // convert hash results to integer in little endian order.
         Integer::from_digits(hasher.finalize().as_slice(), Order::Lsf)
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct Blake3Compute {
-    pub difficulty: Difficulty,
-    pub pre_hash: H256,
-    pub nonce: U256,
-}
-
-impl Hash<Integer, U256> for Blake3Compute {
-    fn set_nonce(&mut self, int: &Integer) {
-        self.nonce = bigint_u256(int);
-    }
-
-    fn get_nonce(&self) -> U256 {
-        self.nonce.clone()
-    }
-
-    fn hash_integer(&self) -> Integer {
-        // digest nonce by hashing with header data.
-        let data = &self.encode()[..];
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(&data);
-        let blake3_hash = hasher.finalize();
-        // convert hash results to integer in little endian order.
-        Integer::from_digits(blake3_hash.as_bytes(), Order::Lsf)
     }
 }
 
