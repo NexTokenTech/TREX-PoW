@@ -6,12 +6,13 @@ use elgamal_capsule::{
     }
 };
 use rug::{integer::Order,Integer,rand::RandState};
-use capsule_pow::{Compute as Blake3Compute, generic::Hash, pollard_rho, SolutionVerifier};
+use capsule_pow::{generic::Hash, pollard_rho, SolutionVerifier};//Compute as Blake3Compute
 use cp_constants::Difficulty;
 use sp_core::{H256, U256};
 use capsule_pow::utils::{bigint_u256};
 use codec::{Decode, Encode};
 use sha2::{Digest,Sha256};
+use rand::{self, Rng};
 
 
 /// A not-yet-computed attempt to solve the proof of work. Calling the
@@ -42,14 +43,43 @@ impl Hash<Integer, U256> for Sha256Compute {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
+pub struct Blake3Compute {
+    pub difficulty: Difficulty,
+    pub pre_hash: H256,
+    pub nonce: U256,
+}
+
+impl Hash<Integer, U256> for Blake3Compute {
+    fn set_nonce(&mut self, int: &Integer) {
+        self.nonce = bigint_u256(int);
+    }
+
+    fn get_nonce(&self) -> U256 {
+        self.nonce.clone()
+    }
+
+    fn hash_integer(&self) -> Integer {
+        // digest nonce by hashing with header data.
+        let data = &self.encode()[..];
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&data);
+        let blake3_hash = hasher.finalize();
+        // convert hash results to integer in little endian order.
+        Integer::from_digits(blake3_hash.as_bytes(), Order::Lsf)
+    }
+}
+
 pub fn pollard_rho_benchmark<C: Clone + Hash<Integer, U256>>(
     pubkey:&PublicKey,
     compute: &mut C,
 ){
     let mut loop_count = 0;
     let limit = 10;
-    let mut rand = RandState::new_mersenne_twister();
-    let mut seed = Integer::from(Integer::random_bits(pubkey.bit_length, &mut rand));
+    // let mut rand = RandState::new_mersenne_twister();
+    let mut rng = rand::thread_rng();
+    let seed_number = rng.gen_range(1..=10);
+    let mut seed = Integer::from(seed_number);
     // let mut seed = Integer::from(1);
     loop {
         if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed.clone()) {
@@ -79,66 +109,66 @@ fn criterion_benchmark(c: &mut Criterion) {
         .significance_level(0.1)
         .sample_size(10)
         .measurement_time(Duration::from_secs(110));
-    // group.bench_function("pollard rho difficulty for 32 use blake3", |b| {
-    //     let difficulty = 32u32;
-    //     let pubkey = PublicKey{
-    //         p:Integer::from(2718559583u32),
-    //         g:Integer::from(904155462u32),
-    //         h:Integer::from(2274348566u32),
-    //         bit_length: difficulty
-    //     };
-    //     let mut compute = Blake3Compute {
-    //         difficulty: difficulty as Difficulty,
-    //         pre_hash: H256::from([1u8; 32]),
-    //         nonce: U256::from(0i32),
-    //     };
-    //     b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
-    // });
-    // group.bench_function("pollard rho difficulty for 32 use sha256", |b| {
-    //     let difficulty = 32u32;
-    //     let pubkey = PublicKey{
-    //         p:Integer::from(2718559583u32),
-    //         g:Integer::from(904155462u32),
-    //         h:Integer::from(2274348566u32),
-    //         bit_length: difficulty
-    //     };
-    //     let mut compute = Sha256Compute {
-    //         difficulty: difficulty as Difficulty,
-    //         pre_hash: H256::from([1u8; 32]),
-    //         nonce: U256::from(0i32),
-    //     };
-    //     b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
-    // });
-    // group.bench_function("pollard rho difficulty for 33 use blake3", |b| {
-    //     let difficulty = 33u32;
-    //     let pubkey = PublicKey{
-    //         p:Integer::from(2718559583u32),
-    //         g:Integer::from(2274348567u32),
-    //         h:Integer::from(1358393698u32),
-    //         bit_length: difficulty
-    //     };
-    //     let mut compute = Blake3Compute {
-    //         difficulty: difficulty as Difficulty,
-    //         pre_hash: H256::from([1u8; 32]),
-    //         nonce: U256::from(0i32),
-    //     };
-    //     b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
-    // });
-    // group.bench_function("pollard rho difficulty for 33 use sha256", |b| {
-    //     let difficulty = 33u32;
-    //     let pubkey = PublicKey{
-    //         p:Integer::from(2718559583u32),
-    //         g:Integer::from(2274348567u32),
-    //         h:Integer::from(1358393698u32),
-    //         bit_length: difficulty
-    //     };
-    //     let mut compute = Sha256Compute {
-    //         difficulty: difficulty as Difficulty,
-    //         pre_hash: H256::from([1u8; 32]),
-    //         nonce: U256::from(0i32),
-    //     };
-    //     b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
-    // });
+    group.bench_function("pollard rho difficulty for 32 use blake3", |b| {
+        let difficulty = 32u32;
+        let pubkey = PublicKey{
+            p:Integer::from(2718559583u32),
+            g:Integer::from(904155462u32),
+            h:Integer::from(2274348566u32),
+            bit_length: difficulty
+        };
+        let mut compute = Blake3Compute {
+            difficulty: difficulty as Difficulty,
+            pre_hash: H256::from([1u8; 32]),
+            nonce: U256::from(0i32),
+        };
+        b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
+    });
+    group.bench_function("pollard rho difficulty for 32 use sha256", |b| {
+        let difficulty = 32u32;
+        let pubkey = PublicKey{
+            p:Integer::from(2718559583u32),
+            g:Integer::from(904155462u32),
+            h:Integer::from(2274348566u32),
+            bit_length: difficulty
+        };
+        let mut compute = Sha256Compute {
+            difficulty: difficulty as Difficulty,
+            pre_hash: H256::from([1u8; 32]),
+            nonce: U256::from(0i32),
+        };
+        b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
+    });
+    group.bench_function("pollard rho difficulty for 33 use blake3", |b| {
+        let difficulty = 33u32;
+        let pubkey = PublicKey{
+            p:Integer::from(2718559583u32),
+            g:Integer::from(2274348567u32),
+            h:Integer::from(1358393698u32),
+            bit_length: difficulty
+        };
+        let mut compute = Blake3Compute {
+            difficulty: difficulty as Difficulty,
+            pre_hash: H256::from([1u8; 32]),
+            nonce: U256::from(0i32),
+        };
+        b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
+    });
+    group.bench_function("pollard rho difficulty for 33 use sha256", |b| {
+        let difficulty = 33u32;
+        let pubkey = PublicKey{
+            p:Integer::from(2718559583u32),
+            g:Integer::from(2274348567u32),
+            h:Integer::from(1358393698u32),
+            bit_length: difficulty
+        };
+        let mut compute = Sha256Compute {
+            difficulty: difficulty as Difficulty,
+            pre_hash: H256::from([1u8; 32]),
+            nonce: U256::from(0i32),
+        };
+        b.iter(move || pollard_rho_benchmark(&pubkey,&mut compute))
+    });
     group.bench_function("pollard rho difficulty for 34 use blake3", |b| {
         let difficulty = 34u32;
         let pubkey = PublicKey{
