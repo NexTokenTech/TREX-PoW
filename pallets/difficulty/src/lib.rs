@@ -38,6 +38,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use num_traits::PrimInt;
 
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, Copy, Eq, PartialEq)]
 	#[scale_info(skip_type_params(T))]
@@ -156,7 +157,7 @@ pub mod pallet {
 				let adj_ts = clamp(block_time_window, ts_delta);
 
 				// Difficulty adjustment and storage
-				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT) as i128 + adj_ts;
+				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT).checked_add_signed(adj_ts).unwrap_or(0u128);
 				let mut difficulty_final = MIN_DIFFICULTY;
 				if difficulty < MIN_DIFFICULTY as i128{
 					difficulty_final = MIN_DIFFICULTY;
