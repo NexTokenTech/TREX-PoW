@@ -158,14 +158,14 @@ pub mod pallet {
 				let adj_ts = clamp(block_time_window, ts_delta);
 
 				// Difficulty adjustment and storage
-				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT).checked_add_signed(adj_ts).unwrap_or(0u128);
+				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT).checked_add_signed(adj_ts).unwrap_or(MIN_DIFFICULTY);
 				let mut difficulty_final = MIN_DIFFICULTY;
 				if difficulty < MIN_DIFFICULTY{
 					difficulty_final = MIN_DIFFICULTY;
 				} else if difficulty > MAX_DIFFICULTY {
 					difficulty_final = MAX_DIFFICULTY;
 				} else {
-					difficulty_final = difficulty as u128;
+					difficulty_final = difficulty;
 				}
 
 				// current_height to zero
