@@ -10,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg(feature = "std")]
 pub mod genesis;
 
+use cp_constants::{Difficulty,DAYS,DOLLARS};
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -19,11 +20,17 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
+use sp_std::{
+	cmp,
+	cmp::{max, min},
+	collections::btree_map::BTreeMap,
+	prelude::*,
+};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use cp_constants::Difficulty;
 // A few exports that help ease life for downstream crates.
+use cp_constants::BLOCK_TIME_SEC; //SLOT_DURATION
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{KeyOwnerProofSystem, Randomness, StorageInfo},
@@ -33,7 +40,6 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
-use cp_constants::{BLOCK_TIME_SEC};//SLOT_DURATION
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -231,6 +237,23 @@ parameter_types! {
 	pub const TargetBlockTime: u64 = BLOCK_TIME_SEC as u64;
 }
 
+pub struct GenerateRewardLocks;
+
+parameter_types! {
+	pub DonationDestination: AccountId = Treasury::account_id();
+	pub const LockBounds: pallet_rewards::LockBounds = pallet_rewards::LockBounds {period_max: 500, period_min: 20,
+																	divide_max: 50, divide_min: 2};
+}
+
+impl rewards::Config for Runtime {
+	type Event = Event;
+	type Currency = Balances;
+	type DonationDestination = DonationDestination;
+	type GenerateRewardLocks = GenerateRewardLocks;
+	type WeightInfo = crate::weights::pallet_rewards::WeightInfo<Self>;
+	type LockParametersBounds = LockBounds;
+}
+
 /// Configure the pallet-difficulty in pallets/difficulty.
 impl pallet_difficulty::Config for Runtime {
 	type TargetBlockTime = TargetBlockTime;
@@ -261,7 +284,8 @@ construct_runtime!(
 		// Include the custom logic from the pallet-difficulty in the runtime.
 		DifficultyModule: pallet_difficulty,
 		StorageModule: pallet_storage,
-		CapsuleModule: pallet_capsule
+		CapsuleModule: pallet_capsule,
+		Rewards: pallet_rewards,
 	}
 );
 
@@ -293,6 +317,46 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
+	impl pallet_rewards::GenerateRewardLocks<Block> for Runtime{
+		fn generate_reward_locks(
+		current_block: BlockNumber,
+		total_reward: Balance,
+		lock_parameters: Option<pallet_rewards::LockParameters>,
+	) -> BTreeMap<BlockNumber, Balance> {
+		let mut locks = BTreeMap::new();
+		let locked_reward = total_reward.saturating_sub(1 * DOLLARS);
+
+		if locked_reward > 0 {
+			let total_lock_period: BlockNumber;
+			let divide: BlockNumber;
+
+			if let Some(lock_parameters) = lock_parameters {
+				total_lock_period = u32::from(lock_parameters.period) * DAYS;
+				divide = u32::from(lock_parameters.divide);
+			} else {
+				total_lock_period = 100 * DAYS;
+				divide = 10;
+			}
+			for i in 0..divide {
+				let one_locked_reward = locked_reward / divide as u128;
+
+				let estimate_block_number =
+					current_block.saturating_add((i + 1) * (total_lock_period / divide));
+				let actual_block_number = estimate_block_number / DAYS * DAYS;
+
+				locks.insert(actual_block_number, one_locked_reward);
+			}
+		}
+
+		locks
+	}
+
+	fn max_locks(lock_bounds: pallet_rewards::LockBounds) -> u32 {
+		// Max locks when a miner mines at least one block every day till the lock period of
+		// the first mined block ends.
+		cmp::max(100, u32::from(lock_bounds.period_max))
+	}
+	}
 	impl pallet_storage_runtime_api::SumStorageApi<Block> for Runtime{
 		fn get_sum() -> u32{
 			StorageModule::get_sum()

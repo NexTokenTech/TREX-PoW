@@ -52,8 +52,10 @@ pallet-difficulty = { version = "0.1.0", default-features = false, path = "../pa
 pallet-storage = { default-features = false, path = "../pallets/storage" }
 pallet-storage-runtime-api = { default-features = false, path = "../pallets/storage/runtime-api" }
 pallet-capsule = { default-features = false, path = "../pallets/capsule" }
+pallet-rewards = { default-features = false,path = "../pallets/rewards" }
 #getrandom = { version = "0.2", features = ["js"] }
 sp-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.17" }
+treasury = { package = "pallet-treasury",version = "4.0.0-dev", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.17" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
@@ -87,6 +89,7 @@ std = [
 	"pallet-storage/std",
 	"pallet-storage-runtime-api/std",
 	"pallet-capsule/std",
+	"pallet-rewards/std",
 	"sp-consensus-pow/std"
 ]
 runtime-benchmarks = [
