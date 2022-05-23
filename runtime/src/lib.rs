@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg(feature = "std")]
 pub mod genesis;
 
-use cp_constants::{Difficulty,DAYS,DOLLARS};
+use cp_constants::{Difficulty, DAYS, DOLLARS};
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -46,6 +46,7 @@ use pallet_transaction_payment::CurrencyAdapter;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+mod weights;
 
 /// Import the difficulty pallet.
 pub use pallet_difficulty;
@@ -239,18 +240,59 @@ parameter_types! {
 
 pub struct GenerateRewardLocks;
 
+impl pallet_rewards::GenerateRewardLocks<Runtime> for GenerateRewardLocks {
+	fn generate_reward_locks(
+		current_block: BlockNumber,
+		total_reward: Balance,
+		lock_parameters: Option<pallet_rewards::LockParameters>,
+	) -> BTreeMap<BlockNumber, Balance> {
+		let mut locks = BTreeMap::new();
+		let locked_reward = total_reward.saturating_sub(1 * DOLLARS);
+
+		if locked_reward > 0 {
+			let total_lock_period: BlockNumber;
+			let divide: BlockNumber;
+
+			if let Some(lock_parameters) = lock_parameters {
+				total_lock_period = u32::from(lock_parameters.period) * DAYS;
+				divide = u32::from(lock_parameters.divide);
+			} else {
+				total_lock_period = 100 * DAYS;
+				divide = 10;
+			}
+			for i in 0..divide {
+				let one_locked_reward = locked_reward / divide as u128;
+
+				let estimate_block_number =
+					current_block.saturating_add((i + 1) * (total_lock_period / divide));
+				let actual_block_number = estimate_block_number / DAYS * DAYS;
+
+				locks.insert(actual_block_number, one_locked_reward);
+			}
+		}
+
+		locks
+	}
+
+	fn max_locks(lock_bounds: pallet_rewards::LockBounds) -> u32 {
+		// Max locks when a miner mines at least one block every day till the lock period of
+		// the first mined block ends.
+		cmp::max(100, u32::from(lock_bounds.period_max))
+	}
+}
+
 parameter_types! {
-	pub DonationDestination: AccountId = Treasury::account_id();
+	// pub DonationDestination: AccountId = Treasury::account_id();
 	pub const LockBounds: pallet_rewards::LockBounds = pallet_rewards::LockBounds {period_max: 500, period_min: 20,
 																	divide_max: 50, divide_min: 2};
 }
 
-impl rewards::Config for Runtime {
+impl pallet_rewards::Config for Runtime {
 	type Event = Event;
 	type Currency = Balances;
-	type DonationDestination = DonationDestination;
+	// type DonationDestination = DonationDestination;
 	type GenerateRewardLocks = GenerateRewardLocks;
-	type WeightInfo = crate::weights::pallet_rewards::WeightInfo<Self>;
+	type WeightInfo = weights::rewards::WeightInfo<Self>;
 	type LockParametersBounds = LockBounds;
 }
 
@@ -317,46 +359,6 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
-	impl pallet_rewards::GenerateRewardLocks<Block> for Runtime{
-		fn generate_reward_locks(
-		current_block: BlockNumber,
-		total_reward: Balance,
-		lock_parameters: Option<pallet_rewards::LockParameters>,
-	) -> BTreeMap<BlockNumber, Balance> {
-		let mut locks = BTreeMap::new();
-		let locked_reward = total_reward.saturating_sub(1 * DOLLARS);
-
-		if locked_reward > 0 {
-			let total_lock_period: BlockNumber;
-			let divide: BlockNumber;
-
-			if let Some(lock_parameters) = lock_parameters {
-				total_lock_period = u32::from(lock_parameters.period) * DAYS;
-				divide = u32::from(lock_parameters.divide);
-			} else {
-				total_lock_period = 100 * DAYS;
-				divide = 10;
-			}
-			for i in 0..divide {
-				let one_locked_reward = locked_reward / divide as u128;
-
-				let estimate_block_number =
-					current_block.saturating_add((i + 1) * (total_lock_period / divide));
-				let actual_block_number = estimate_block_number / DAYS * DAYS;
-
-				locks.insert(actual_block_number, one_locked_reward);
-			}
-		}
-
-		locks
-	}
-
-	fn max_locks(lock_bounds: pallet_rewards::LockBounds) -> u32 {
-		// Max locks when a miner mines at least one block every day till the lock period of
-		// the first mined block ends.
-		cmp::max(100, u32::from(lock_bounds.period_max))
-	}
-	}
 	impl pallet_storage_runtime_api::SumStorageApi<Block> for Runtime{
 		fn get_sum() -> u32{
 			StorageModule::get_sum()

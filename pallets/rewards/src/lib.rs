@@ -14,6 +14,7 @@ use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{
 	collections::btree_map::BTreeMap, iter::FromIterator, ops::Bound::Included, prelude::*,
 };
+use cp_constants::DOLLARS;
 pub use pallet::*;
 
 #[cfg(test)]
@@ -63,7 +64,7 @@ pub mod pallet {
 		/// An implementation of on-chain currency.
 		type Currency: LockableCurrency<Self::AccountId>;
 		/// Donation destination.
-		type DonationDestination: Get<Self::AccountId>;
+		// type DonationDestination: Get<Self::AccountId>;
 		/// Generate reward locks.
 		type GenerateRewardLocks: GenerateRewardLocks<Self>;
 		/// Weights for this pallet.
@@ -146,13 +147,13 @@ pub mod pallet {
 	pub type StorageVersion<T:Config> = StorageValue<_, migrations::StorageVersion>;
 
 	#[pallet::genesis_config]
-	pub struct GenesisConfig {
+	pub struct GenesisConfig{
 		pub storage_value: migrations::StorageVersion,
 	}
 	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
-			GenesisConfig { storage_value: migrations::StorageVersion::V1 }
+			Self {storage_value: migrations::StorageVersion::V1 }
 		}
 	}
 
@@ -175,7 +176,7 @@ pub mod pallet {
 		fn max_locks(lock_bounds: LockBounds) -> u32;
 	}
 
-	impl<T: Config> GenerateRewardLocks<T> for () {
+	impl<T: Config> GenerateRewardLocks<T> for (){
 		fn generate_reward_locks(
 			_current_block: T::BlockNumber,
 			_total_reward: BalanceOf<T>,

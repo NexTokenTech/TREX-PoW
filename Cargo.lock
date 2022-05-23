@@ -3929,6 +3929,7 @@ dependencies = [
 name = "pallet-rewards"
 version = "0.1.0"
 dependencies = [
+ "cp-constants",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

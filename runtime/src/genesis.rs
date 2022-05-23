@@ -1,9 +1,11 @@
-use super::{AccountId, BalancesConfig, DifficultyModuleConfig, GenesisConfig, Signature, SudoConfig, SystemConfig, TransactionPaymentConfig};
+use super::{AccountId, BalancesConfig, DifficultyModuleConfig, GenesisConfig, Signature, SudoConfig, SystemConfig, TransactionPaymentConfig, RewardsConfig};
 use sp_core::{sr25519, Pair};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use cp_constants::{
-    MIN_DIFFICULTY
+    MIN_DIFFICULTY,
+    DOLLARS
 };
+use pallet_rewards::migrations::StorageVersion;
 
 /// Helper function to generate a crypto pair from seed
 fn get_from_seed<TPair: Pair>(seed: &str) -> TPair::Public {
@@ -58,6 +60,9 @@ pub fn testnet_genesis(
                 .collect(),
         },
         sudo: SudoConfig { key: Some(root_key) },
-        transaction_payment: TransactionPaymentConfig {}
+        transaction_payment: TransactionPaymentConfig {},
+        rewards: RewardsConfig {
+            storage_value:StorageVersion::V1
+        }
     }
 }
