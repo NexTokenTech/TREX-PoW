@@ -38,8 +38,6 @@ pub fn clamp(block_time_target: u128, measured_block_time: u128) -> i128 {
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-	use num_traits::PrimInt;
 
 	#[derive(Encode, Decode, TypeInfo, RuntimeDebug, Clone, Copy, Eq, PartialEq)]
 	#[scale_info(skip_type_params(T))]
@@ -122,7 +120,7 @@ pub mod pallet {
 			let mut current_height = CurrentHeight::<T>::get().unwrap_or(0u32);
 
 			// panic if current height pointer is over the boundray.
-			if current_height >= DIFFICULTY_ADJUST_WINDOW as u32{
+			if current_height >= DIFFICULTY_ADJUST_WINDOW as u32 {
 				panic!("current height pointer out of bounds!");
 			}
 			// It's time to adjust the difficulty
@@ -158,9 +156,12 @@ pub mod pallet {
 				let adj_ts = clamp(block_time_window, ts_delta);
 
 				// Difficulty adjustment and storage
-				let difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT).checked_add_signed(adj_ts).unwrap_or(MIN_DIFFICULTY);
+				let difficulty = Self::difficulty()
+					.unwrap_or(DIFFICULTY_DEFAULT)
+					.checked_add_signed(adj_ts)
+					.unwrap_or(MIN_DIFFICULTY);
 				let mut difficulty_final = MIN_DIFFICULTY;
-				if difficulty < MIN_DIFFICULTY{
+				if difficulty < MIN_DIFFICULTY {
 					difficulty_final = MIN_DIFFICULTY;
 				} else if difficulty > MAX_DIFFICULTY {
 					difficulty_final = MAX_DIFFICULTY;

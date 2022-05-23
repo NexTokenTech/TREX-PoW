@@ -3,19 +3,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
+use core::default::Default;
 use frame_support::{
 	traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
 	weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_consensus_pow::POW_ENGINE_ID;
 use sp_runtime::traits::{Saturating, Zero};
 use sp_std::{
 	collections::btree_map::BTreeMap, iter::FromIterator, ops::Bound::Included, prelude::*,
 };
-use cp_constants::DOLLARS;
-pub use pallet::*;
 
 #[cfg(test)]
 mod mock;
@@ -75,25 +75,24 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config>
-	{
+	pub enum Event<T: Config> {
 		/// A new schedule has been set.
 		ScheduleSet,
 		/// Reward has been sent.
-		Rewarded(T::AccountId,BalanceOf<T>),
+		Rewarded(T::AccountId, BalanceOf<T>),
 		/// Reward has been changed.
 		RewardChanged(BalanceOf<T>),
 		/// Mint has been sent.
-		Minted(T::AccountId,BalanceOf<T>),
+		Minted(T::AccountId, BalanceOf<T>),
 		/// Mint has been changed.
-		MintsChanged(BTreeMap<T::AccountId,BalanceOf<T>>),
+		MintsChanged(BTreeMap<T::AccountId, BalanceOf<T>>),
 		/// Lock Parameters have been changed.
 		LockParamsChanged(LockParameters),
 	}
 
 	/// Type alias for currency balance.
 	pub type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[pallet::pallet]
 	// use 'without_storage_info' to resolve "MaxEncodedLen" issue.
@@ -117,48 +116,61 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn author)]
-	pub type Author<T:Config> = StorageValue<_, T::AccountId>;
+	pub type Author<T: Config> = StorageValue<_, T::AccountId>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reward)]
-	pub type Reward<T:Config> = StorageValue<_, BalanceOf<T>>;
+	pub type Reward<T: Config> = StorageValue<_, BalanceOf<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reward_locks)]
-	pub type RewardLocks<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, BTreeMap<T::BlockNumber, BalanceOf<T>>, OptionQuery>;
+	pub type RewardLocks<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		BTreeMap<T::BlockNumber, BalanceOf<T>>,
+		OptionQuery,
+	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn reward_changes)]
-	pub type RewardChanges<T:Config> = StorageValue<_, BTreeMap<T::BlockNumber, BalanceOf<T>>>;
+	pub type RewardChanges<T: Config> = StorageValue<_, BTreeMap<T::BlockNumber, BalanceOf<T>>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn mints)]
-	pub type Mints<T:Config> = StorageValue<_, BTreeMap<T::AccountId, BalanceOf<T>>>;
+	pub type Mints<T: Config> = StorageValue<_, BTreeMap<T::AccountId, BalanceOf<T>>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn mint_changes)]
-	pub type MintChanges<T:Config> = StorageValue<_, BTreeMap<T::BlockNumber, BTreeMap<T::AccountId, BalanceOf<T>>>>;
+	pub type MintChanges<T: Config> =
+		StorageValue<_, BTreeMap<T::BlockNumber, BTreeMap<T::AccountId, BalanceOf<T>>>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn lock_params)]
-	pub type LockParams<T:Config> = StorageValue<_, LockParameters>;
+	pub type LockParams<T: Config> = StorageValue<_, LockParameters>;
 
 	#[pallet::storage]
-	pub type StorageVersion<T:Config> = StorageValue<_, migrations::StorageVersion>;
+	pub type StorageVersion<T: Config> = StorageValue<_, migrations::StorageVersion>;
 
 	#[pallet::genesis_config]
-	pub struct GenesisConfig{
+	pub struct GenesisConfig<T: Config> {
+		pub rewards: BalanceOf<T>,
+		pub mints: BTreeMap<T::AccountId, BalanceOf<T>>,
 		pub storage_value: migrations::StorageVersion,
 	}
 	#[cfg(feature = "std")]
-	impl Default for GenesisConfig {
+	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self {storage_value: migrations::StorageVersion::V1 }
+			Self {
+				rewards: Default::default(),
+				mints: BTreeMap::<T::AccountId, BalanceOf<T>>::new(),
+				storage_value: migrations::StorageVersion::V1,
+			}
 		}
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig {
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
 			<StorageVersion<T>>::put(migrations::StorageVersion::V1);
 		}
@@ -176,7 +188,7 @@ pub mod pallet {
 		fn max_locks(lock_bounds: LockBounds) -> u32;
 	}
 
-	impl<T: Config> GenerateRewardLocks<T> for (){
+	impl<T: Config> GenerateRewardLocks<T> for () {
 		fn generate_reward_locks(
 			_current_block: T::BlockNumber,
 			_total_reward: BalanceOf<T>,
@@ -198,10 +210,12 @@ pub mod pallet {
 				.logs
 				.iter()
 				.filter_map(|s| s.as_pre_runtime())
-				.filter_map(|(id, mut data)| if id == POW_ENGINE_ID {
-					T::AccountId::decode(&mut data).ok()
-				} else {
-					None
+				.filter_map(|(id, mut data)| {
+					if id == POW_ENGINE_ID {
+						T::AccountId::decode(&mut data).ok()
+					} else {
+						None
+					}
 				})
 				.next();
 
@@ -212,7 +226,9 @@ pub mod pallet {
 			RewardChanges::<T>::mutate(|reward_changes| {
 				let mut removing = Vec::new();
 
-				for (block_number, reward) in reward_changes.clone().unwrap().range((Included(Zero::zero()), Included(now))) {
+				for (block_number, reward) in
+					reward_changes.clone().unwrap().range((Included(Zero::zero()), Included(now)))
+				{
 					Reward::<T>::set(Some(*reward));
 					removing.push(*block_number);
 
@@ -227,7 +243,9 @@ pub mod pallet {
 			MintChanges::<T>::mutate(|mint_changes| {
 				let mut removing = Vec::new();
 
-				for (block_number, mints) in mint_changes.clone().unwrap().range((Included(Zero::zero()), Included(now))) {
+				for (block_number, mints) in
+					mint_changes.clone().unwrap().range((Included(Zero::zero()), Included(now)))
+				{
 					Mints::<T>::set(Some(mints.clone()));
 					removing.push(*block_number);
 
@@ -280,7 +298,7 @@ pub mod pallet {
 			let mints = BTreeMap::from_iter(mints.into_iter());
 			let reward_changes = BTreeMap::from_iter(reward_changes.into_iter());
 			let mint_changes = BTreeMap::from_iter(
-				mint_changes.into_iter().map(|(k, v)| (k, BTreeMap::from_iter(v.into_iter())))
+				mint_changes.into_iter().map(|(k, v)| (k, BTreeMap::from_iter(v.into_iter()))),
 			);
 
 			ensure!(reward >= T::Currency::minimum_balance(), Error::<T>::RewardTooLow);
@@ -310,13 +328,22 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(T::WeightInfo::set_lock_params())]
-		pub fn set_lock_params(origin: OriginFor<T>, lock_params: LockParameters) -> DispatchResult  {
+		pub fn set_lock_params(
+			origin: OriginFor<T>,
+			lock_params: LockParameters,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			let bounds = T::LockParametersBounds::get();
-			ensure!((bounds.period_min..=bounds.period_max).contains(&lock_params.period) &&
-				(bounds.divide_min..=bounds.divide_max).contains(&lock_params.divide), Error::<T>::LockParamsOutOfBounds);
-			ensure!(lock_params.period % lock_params.divide == 0, Error::<T>::LockPeriodNotDivisible);
+			ensure!(
+				(bounds.period_min..=bounds.period_max).contains(&lock_params.period)
+					&& (bounds.divide_min..=bounds.divide_max).contains(&lock_params.divide),
+				Error::<T>::LockParamsOutOfBounds
+			);
+			ensure!(
+				lock_params.period % lock_params.divide == 0,
+				Error::<T>::LockPeriodNotDivisible
+			);
 
 			<LockParams<T>>::put(lock_params);
 			Self::deposit_event(Event::<T>::LockParamsChanged(lock_params));
@@ -326,7 +353,7 @@ pub mod pallet {
 
 		/// Unlock any vested rewards for `target` account.
 		#[pallet::weight(T::WeightInfo::unlock())]
-		pub fn unlock(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult  {
+		pub fn unlock(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
 			ensure_signed(origin)?;
 
 			let locks = Self::reward_locks(&target).unwrap();
@@ -344,8 +371,11 @@ impl<T: Config> Pallet<T> {
 	pub fn do_reward(author: &T::AccountId, reward: BalanceOf<T>, when: T::BlockNumber) {
 		let miner_total = reward;
 
-		let miner_reward_locks =
-			T::GenerateRewardLocks::generate_reward_locks(when, miner_total, <LockParams<T>>::get());
+		let miner_reward_locks = T::GenerateRewardLocks::generate_reward_locks(
+			when,
+			miner_total,
+			<LockParams<T>>::get(),
+		);
 
 		drop(T::Currency::deposit_creating(&author, miner_total));
 
@@ -353,9 +383,8 @@ impl<T: Config> Pallet<T> {
 			let mut locks = Self::reward_locks(&author).unwrap();
 
 			for (new_lock_number, new_lock_balance) in miner_reward_locks {
-				let old_balance = *locks
-					.get(&new_lock_number)
-					.unwrap_or(&BalanceOf::<T>::default());
+				let old_balance =
+					*locks.get(&new_lock_number).unwrap_or(&BalanceOf::<T>::default());
 				let new_balance = old_balance.saturating_add(new_lock_balance);
 				locks.insert(new_lock_number, new_balance);
 			}

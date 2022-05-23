@@ -1,7 +1,6 @@
 // use crate::{BalanceOf, Config, Mints, RewardChanges};
 use crate::pallet::{BalanceOf, Config, Mints, RewardChanges};
 use codec::{Decode, Encode};
-use frame_support::storage::StorageValue;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

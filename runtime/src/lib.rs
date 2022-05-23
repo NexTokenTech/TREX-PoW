@@ -20,12 +20,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
-use sp_std::{
-	cmp,
-	cmp::{max, min},
-	collections::btree_map::BTreeMap,
-	prelude::*,
-};
+use sp_std::{cmp, collections::btree_map::BTreeMap};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
