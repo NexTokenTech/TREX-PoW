@@ -17,6 +17,8 @@ sp-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytec
 sp-core = { version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 sp-runtime = { version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 sc-client-api = {version = "4.0.0-dev",  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
+sp-application-crypto = {version = "5.0.0",  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.17" }
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
 
 # local packages
 cp-constants = { path = "../../primitives/constants"}

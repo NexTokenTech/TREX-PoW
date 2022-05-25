@@ -23,6 +23,14 @@ pub use crate::generic::{
 };
 use utils::{bigint_u256, gen_bigint_range, u256_bigint};
 
+pub mod app {
+	use sp_application_crypto::{app_crypto, sr25519};
+	use sp_core::crypto::KeyTypeId;
+
+	pub const ID: KeyTypeId = KeyTypeId(*b"caps");
+	app_crypto!(sr25519, ID);
+}
+
 // constants.
 const BIG_INT_0: Integer = Integer::ZERO;
 

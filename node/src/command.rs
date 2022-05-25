@@ -120,8 +120,8 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.run_node_until_exit(|config| async move {
 				match config.role {
 					// light node has full parts but not mine
-					Role::Light => service::new_full(config, false),
-					_ => service::new_full(config, true),
+					Role::Light => service::new_full(config, false,cli.author.as_ref().map(|s| s.as_str())),
+					_ => service::new_full(config, true,cli.author.as_ref().map(|s| s.as_str())),
 				}
 					.map_err(sc_cli::Error::Service)
 			})

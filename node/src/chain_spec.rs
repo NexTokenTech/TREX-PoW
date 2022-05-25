@@ -3,6 +3,7 @@ use capsule_runtime::{
 	GenesisConfig, WASM_BINARY,
 };
 use sp_core::sr25519;
+use serde_json::json;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -20,9 +21,18 @@ pub fn dev_config() -> Result<ChainSpec, String> {
 		move || dev_genesis(wasm_binary),
 		vec![],
 		None,
+		Some("capsuledev"),
 		None,
-		None,
-		None,
+		Some(
+			json!({
+				"ss58Format": 16,
+				"tokenDecimals": 12,
+				"tokenSymbol": "CPSD"
+			})
+				.as_object()
+				.expect("Created an object")
+				.clone(),
+		),
 		None,
 	))
 }
@@ -56,9 +66,18 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		},
 		vec![],
 		None,
+		Some("capsulelocal"),
 		None,
-		None,
-		None,
+		Some(
+			json!({
+				"ss58Format": 16,
+				"tokenDecimals": 12,
+				"tokenSymbol": "CPSD"
+			})
+				.as_object()
+				.expect("Created an object")
+				.clone(),
+		),
 		None,
 	))
 }
