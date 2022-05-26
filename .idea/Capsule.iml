@@ -15,6 +15,9 @@
       <sourceFolder url="file://$MODULE_DIR$/pallets/storage/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/difficulty/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/primitives/constants/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/consensus/capsule-pow/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/pallets/rewards/runtime-api/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pallets/rewards/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

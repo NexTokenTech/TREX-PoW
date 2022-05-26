@@ -1,4 +1,3 @@
-#![feature(associated_type_defaults)]
 #![feature(mixed_integer_ops)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -48,6 +47,8 @@ pub trait WeightInfo {
 	fn set_schedule() -> Weight;
 	fn set_lock_params() -> Weight;
 }
+
+const REWARDS_ID: LockIdentifier = *b"rewards ";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -205,7 +206,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_finalize(now: T::BlockNumber){
+		fn on_finalize(now: T::BlockNumber) {
 			if let Some(author) = <Author<T>>::get() {
 				let reward = Reward::<T>::get().unwrap_or_default();
 				Self::do_reward(&author, reward, now);
@@ -239,8 +240,10 @@ pub mod pallet {
 			RewardChanges::<T>::mutate(|reward_changes| {
 				let mut removing = Vec::new();
 
-				for (block_number, reward) in
-					reward_changes.clone().unwrap_or_default().range((Included(Zero::zero()), Included(now)))
+				for (block_number, reward) in reward_changes
+					.clone()
+					.unwrap_or_default()
+					.range((Included(Zero::zero()), Included(now)))
 				{
 					Reward::<T>::set(Some(*reward));
 					removing.push(*block_number);
@@ -256,8 +259,10 @@ pub mod pallet {
 			MintChanges::<T>::mutate(|mint_changes| {
 				let mut removing = Vec::new();
 
-				for (block_number, mints) in
-					mint_changes.clone().unwrap_or_default().range((Included(Zero::zero()), Included(now)))
+				for (block_number, mints) in mint_changes
+					.clone()
+					.unwrap_or_default()
+					.range((Included(Zero::zero()), Included(now)))
 				{
 					Mints::<T>::set(Some(mints.clone()));
 					removing.push(*block_number);
@@ -281,9 +286,88 @@ pub mod pallet {
 			0
 		}
 	}
-}
 
-const REWARDS_ID: LockIdentifier = *b"rewards ";
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::weight(T::WeightInfo::set_schedule())]
+		pub fn set_schedule(
+			origin: OriginFor<T>,
+			reward: BalanceOf<T>,
+			mints: Vec<(T::AccountId, BalanceOf<T>)>,
+			reward_changes: Vec<(T::BlockNumber, BalanceOf<T>)>,
+			mint_changes: Vec<(T::BlockNumber, Vec<(T::AccountId, BalanceOf<T>)>)>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let mints = BTreeMap::from_iter(mints.into_iter());
+			let reward_changes = BTreeMap::from_iter(reward_changes.into_iter());
+			let mint_changes = BTreeMap::from_iter(
+				mint_changes.into_iter().map(|(k, v)| (k, BTreeMap::from_iter(v.into_iter()))),
+			);
+
+			ensure!(reward >= T::Currency::minimum_balance(), Error::<T>::RewardTooLow);
+			for (_, mint) in &mints {
+				ensure!(*mint >= T::Currency::minimum_balance(), Error::<T>::MintTooLow);
+			}
+			for (_, reward_change) in &reward_changes {
+				ensure!(*reward_change >= T::Currency::minimum_balance(), Error::<T>::RewardTooLow);
+			}
+			for (_, mint_change) in &mint_changes {
+				for (_, mint) in mint_change {
+					ensure!(*mint >= T::Currency::minimum_balance(), Error::<T>::MintTooLow);
+				}
+			}
+
+			Reward::<T>::put(reward);
+			Self::deposit_event(Event::<T>::RewardChanged(reward));
+
+			Mints::<T>::put(mints.clone());
+			Self::deposit_event(Event::<T>::MintsChanged(mints));
+
+			RewardChanges::<T>::put(reward_changes);
+			MintChanges::<T>::put(mint_changes);
+			Self::deposit_event(Event::<T>::ScheduleSet);
+			// Return a successful DispatchResultWithPostInfo
+			Ok(())
+		}
+
+		#[pallet::weight(T::WeightInfo::set_lock_params())]
+		pub fn set_lock_params(
+			origin: OriginFor<T>,
+			lock_params: LockParameters,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			let bounds = T::LockParametersBounds::get();
+			ensure!(
+				(bounds.period_min..=bounds.period_max).contains(&lock_params.period)
+					&& (bounds.divide_min..=bounds.divide_max).contains(&lock_params.divide),
+				Error::<T>::LockParamsOutOfBounds
+			);
+			ensure!(
+				lock_params.period % lock_params.divide == 0,
+				Error::<T>::LockPeriodNotDivisible
+			);
+
+			<LockParams<T>>::put(lock_params);
+			Self::deposit_event(Event::<T>::LockParamsChanged(lock_params));
+			// Return a successful DispatchResultWithPostInfo
+			Ok(())
+		}
+
+		/// Unlock any vested rewards for `target` account.
+		#[pallet::weight(T::WeightInfo::unlock())]
+		pub fn unlock(origin: OriginFor<T>, target: T::AccountId) -> DispatchResult {
+			ensure_signed(origin)?;
+
+			let locks = Self::reward_locks(&target).unwrap();
+			let current_number = frame_system::Pallet::<T>::block_number();
+			Self::do_update_reward_locks(&target, locks, current_number);
+			// Return a successful DispatchResultWithPostInfo
+			Ok(())
+		}
+	}
+}
 
 impl<T: Config> Pallet<T> {
 	pub fn do_reward(author: &T::AccountId, reward: BalanceOf<T>, when: T::BlockNumber) {

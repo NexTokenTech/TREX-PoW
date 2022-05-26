@@ -24,7 +24,7 @@ use crate::*;
 use frame_support::error::BadOrigin;
 use frame_support::traits::{OnFinalize, OnInitialize};
 use frame_support::{assert_noop, assert_ok};
-use frame_system::InitKind;
+use frame_system::Event;
 use pallet_balances::Error as BalancesError;
 use sp_runtime::{testing::DigestItem, Digest};
 
@@ -47,8 +47,7 @@ fn run_to_block(n: u64, author: u64) {
 			&parent_hash,
 			&Digest {
 				logs: vec![pre_digest],
-			},
-			InitKind::Full,
+			}
 		);
 		System::set_block_number(current_block);
 
@@ -91,7 +90,7 @@ fn set_reward_works() {
 			Default::default()
 		));
 		assert_eq!(Reward::<Test>::get(), 42);
-		assert_eq!(last_event(), RawEvent::ScheduleSet.into());
+		assert_eq!(last_event(), Event::ScheduleSet.into());
 		// Fails when too low
 		assert_noop!(
 			Rewards::set_schedule(
