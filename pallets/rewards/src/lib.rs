@@ -25,7 +25,6 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod default_weights;
-pub mod migrations;
 
 pub struct LockBounds {
 	pub period_max: u16,
@@ -64,8 +63,6 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// An implementation of on-chain currency.
 		type Currency: LockableCurrency<Self::AccountId>;
-		/// Donation destination.
-		// type DonationDestination: Get<Self::AccountId>;
 		/// Generate reward locks.
 		type GenerateRewardLocks: GenerateRewardLocks<Self>;
 		/// Weights for this pallet.
@@ -83,10 +80,6 @@ pub mod pallet {
 		Rewarded(T::AccountId, BalanceOf<T>),
 		/// Reward has been changed.
 		RewardChanged(BalanceOf<T>),
-		/// Mint has been sent.
-		Minted(T::AccountId, BalanceOf<T>),
-		/// Mint has been changed.
-		MintsChanged(BTreeMap<T::AccountId, BalanceOf<T>>),
 		/// Lock Parameters have been changed.
 		LockParamsChanged(LockParameters),
 	}
@@ -105,8 +98,6 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Reward set is too low.
 		RewardTooLow,
-		/// Mint value is too low.
-		MintTooLow,
 		/// Reward curve is not sorted.
 		NotSorted,
 		/// Lock parameters are out of bounds.
@@ -138,34 +129,18 @@ pub mod pallet {
 	pub type RewardChanges<T: Config> = StorageValue<_, BTreeMap<T::BlockNumber, BalanceOf<T>>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn mints)]
-	pub type Mints<T: Config> = StorageValue<_, BTreeMap<T::AccountId, BalanceOf<T>>>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn mint_changes)]
-	pub type MintChanges<T: Config> =
-		StorageValue<_, BTreeMap<T::BlockNumber, BTreeMap<T::AccountId, BalanceOf<T>>>>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn lock_params)]
 	pub type LockParams<T: Config> = StorageValue<_, LockParameters>;
-
-	#[pallet::storage]
-	pub type StorageVersion<T: Config> = StorageValue<_, migrations::StorageVersion>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub rewards: BalanceOf<T>,
-		pub mints: BTreeMap<T::AccountId, BalanceOf<T>>,
-		pub storage_value: migrations::StorageVersion,
 	}
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self {
 				rewards: Default::default(),
-				mints: BTreeMap::<T::AccountId, BalanceOf<T>>::new(),
-				storage_value: migrations::StorageVersion::V1,
 			}
 		}
 	}
@@ -174,7 +149,6 @@ pub mod pallet {
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
 			<Reward<T>>::put(self.rewards);
-			<StorageVersion<T>>::put(self.storage_value);
 		}
 	}
 
@@ -190,6 +164,7 @@ pub mod pallet {
 		fn max_locks(lock_bounds: LockBounds) -> u32;
 	}
 
+	// Default implemention for generating reward locks trait
 	impl<T: Config> GenerateRewardLocks<T> for () {
 		fn generate_reward_locks(
 			_current_block: T::BlockNumber,
@@ -211,9 +186,6 @@ pub mod pallet {
 				let reward = Reward::<T>::get().unwrap_or_default();
 				Self::do_reward(&author, reward, now);
 			}
-
-			let mints = Mints::<T>::get().unwrap_or_default();
-			Self::do_mints(&mints);
 
 			<Author<T>>::kill();
 		}
@@ -256,33 +228,10 @@ pub mod pallet {
 				}
 			});
 
-			MintChanges::<T>::mutate(|mint_changes| {
-				let mut removing = Vec::new();
-
-				for (block_number, mints) in mint_changes
-					.clone()
-					.unwrap_or_default()
-					.range((Included(Zero::zero()), Included(now)))
-				{
-					Mints::<T>::set(Some(mints.clone()));
-					removing.push(*block_number);
-
-					Self::deposit_event(Event::<T>::MintsChanged(mints.clone()));
-				}
-
-				for block_number in removing {
-					mint_changes.clone().unwrap_or_default().remove(&block_number);
-				}
-			});
-
 			T::WeightInfo::on_initialize().saturating_add(T::WeightInfo::on_finalize())
 		}
 
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			let version = StorageVersion::<T>::get().unwrap_or(migrations::StorageVersion::V1);
-			let new_version = version.migrate::<T>();
-			StorageVersion::<T>::put(new_version);
-
 			0
 		}
 	}
@@ -293,39 +242,21 @@ pub mod pallet {
 		pub fn set_schedule(
 			origin: OriginFor<T>,
 			reward: BalanceOf<T>,
-			mints: Vec<(T::AccountId, BalanceOf<T>)>,
 			reward_changes: Vec<(T::BlockNumber, BalanceOf<T>)>,
-			mint_changes: Vec<(T::BlockNumber, Vec<(T::AccountId, BalanceOf<T>)>)>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			let mints = BTreeMap::from_iter(mints.into_iter());
 			let reward_changes = BTreeMap::from_iter(reward_changes.into_iter());
-			let mint_changes = BTreeMap::from_iter(
-				mint_changes.into_iter().map(|(k, v)| (k, BTreeMap::from_iter(v.into_iter()))),
-			);
 
 			ensure!(reward >= T::Currency::minimum_balance(), Error::<T>::RewardTooLow);
-			for (_, mint) in &mints {
-				ensure!(*mint >= T::Currency::minimum_balance(), Error::<T>::MintTooLow);
-			}
 			for (_, reward_change) in &reward_changes {
 				ensure!(*reward_change >= T::Currency::minimum_balance(), Error::<T>::RewardTooLow);
-			}
-			for (_, mint_change) in &mint_changes {
-				for (_, mint) in mint_change {
-					ensure!(*mint >= T::Currency::minimum_balance(), Error::<T>::MintTooLow);
-				}
 			}
 
 			Reward::<T>::put(reward);
 			Self::deposit_event(Event::<T>::RewardChanged(reward));
 
-			Mints::<T>::put(mints.clone());
-			Self::deposit_event(Event::<T>::MintsChanged(mints));
-
 			RewardChanges::<T>::put(reward_changes);
-			MintChanges::<T>::put(mint_changes);
 			Self::deposit_event(Event::<T>::ScheduleSet);
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
@@ -362,7 +293,7 @@ pub mod pallet {
 
 			let locks = Self::reward_locks(&target).unwrap();
 			let current_number = frame_system::Pallet::<T>::block_number();
-			Self::do_update_reward_locks(&target, locks, current_number);
+			Self::update_reward_locks(&target, locks, current_number);
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
@@ -391,11 +322,11 @@ impl<T: Config> Pallet<T> {
 				locks.insert(new_lock_number, new_balance);
 			}
 
-			Self::do_update_reward_locks(&author, locks, when);
+			Self::update_reward_locks(&author, locks, when);
 		}
 	}
 
-	pub fn do_update_reward_locks(
+	pub fn update_reward_locks(
 		author: &T::AccountId,
 		mut locks: BTreeMap<T::BlockNumber, BalanceOf<T>>,
 		current_number: T::BlockNumber,
@@ -423,11 +354,5 @@ impl<T: Config> Pallet<T> {
 		);
 
 		<RewardLocks<T>>::insert(author, locks);
-	}
-
-	pub fn do_mints(mints: &BTreeMap<T::AccountId, BalanceOf<T>>) {
-		for (destination, mint) in mints {
-			drop(T::Currency::deposit_creating(&destination, *mint));
-		}
 	}
 }

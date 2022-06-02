@@ -75,8 +75,6 @@ fn set_reward_works() {
 			Rewards::set_schedule(
 				Origin::signed(1),
 				42,
-				Default::default(),
-				Default::default(),
 				Default::default()
 			),
 			BadOrigin
@@ -85,8 +83,6 @@ fn set_reward_works() {
 		assert_ok!(Rewards::set_schedule(
 			Origin::root(),
 			42,
-			Default::default(),
-			Default::default(),
 			Default::default()
 		));
 		assert_eq!(Reward::<Test>::get(), 42);
@@ -96,8 +92,6 @@ fn set_reward_works() {
 			Rewards::set_schedule(
 				Origin::root(),
 				0,
-				Default::default(),
-				Default::default(),
 				Default::default()
 			),
 			Error::<Test>::RewardTooLow
@@ -124,8 +118,6 @@ fn reward_payment_works() {
 		assert_ok!(Rewards::set_schedule(
 			Origin::root(),
 			42,
-			Default::default(),
-			Default::default(),
 			Default::default()
 		));
 		run_to_block(3, 1);
@@ -140,8 +132,6 @@ fn reward_locks_work() {
 		assert_ok!(Rewards::set_schedule(
 			Origin::root(),
 			101,
-			Default::default(),
-			Default::default(),
 			Default::default()
 		));
 
@@ -292,9 +282,7 @@ fn curve_works() {
 		assert_ok!(Rewards::set_schedule(
 			Origin::root(),
 			60,
-			Default::default(),
-			test_curve(),
-			Default::default()
+			test_curve()
 		));
 		assert_eq!(
 			last_event(),

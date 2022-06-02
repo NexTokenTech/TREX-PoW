@@ -3,8 +3,7 @@ use super::{
 	SudoConfig, SystemConfig, TransactionPaymentConfig,
 };
 use core::default::Default as cDefault;
-use cp_constants::{DOLLARS, MIN_DIFFICULTY};
-use pallet_rewards::migrations::StorageVersion;
+use cp_constants::{DOLLARS, MIN_DIFFICULTY, REWARD_VALUE};
 use sp_core::{sr25519, Pair};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -54,10 +53,6 @@ pub fn testnet_genesis(
 		},
 		sudo: SudoConfig { key: Some(root_key) },
 		transaction_payment: TransactionPaymentConfig {},
-		rewards: RewardsConfig {
-			rewards: 60 * DOLLARS,
-			mints: cDefault::default(),
-			storage_value: StorageVersion::V1,
-		},
+		rewards: RewardsConfig { rewards: REWARD_VALUE * DOLLARS}
 	}
 }

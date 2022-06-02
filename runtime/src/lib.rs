@@ -242,8 +242,11 @@ impl pallet_rewards::GenerateRewardLocks<Runtime> for GenerateRewardLocks {
 		lock_parameters: Option<pallet_rewards::LockParameters>,
 	) -> BTreeMap<BlockNumber, Balance> {
 		let mut locks = BTreeMap::new();
+
+		//at least 1 CPS will always be without locks, so that the miner can always have money to pay for transaction fees
 		let locked_reward = total_reward.saturating_sub(1 * DOLLARS);
 
+		//For the remainder of the reward, it has a total lock of 100 days, and the locks expire every 10 days releasing 10% of the reward.
 		if locked_reward > 0 {
 			let total_lock_period: BlockNumber;
 			let divide: BlockNumber;
