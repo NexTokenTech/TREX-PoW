@@ -14,18 +14,6 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
 	assert_eq!(event, &system_event);
 }
 
-// This function creates a new lock on `who` every block for `num_of_locks`
-// starting at block zero.
-fn create_locks<T: Config>(who: &T::AccountId, num_of_locks: u32) {
-	let mut locks: BTreeMap<T::BlockNumber, BalanceOf<T>> = BTreeMap::new();
-	let reward = T::Currency::minimum_balance();
-	for i in 0..num_of_locks {
-		locks.insert(i.into(), reward);
-	}
-
-	RewardLocks::<T>::insert(who, locks);
-}
-
 benchmarks! {
 	// Worst case: Author info is in digest.
 	on_initialize {
@@ -54,14 +42,6 @@ benchmarks! {
 		Author::<T>::put(&author);
 		Reward::<T>::put(reward);
 
-		// Create existing locks on author.
-		let max_locks = T::GenerateRewardLocks::max_locks(T::LockParametersBounds::get());
-		create_locks::<T>(&author, max_locks);
-
-		// Move to a point where all locks would unlock.
-		frame_system::Module::<T>::set_block_number(max_locks.into());
-		assert_eq!(RewardLocks::<T>::get(&author).iter().count() as u32, max_locks);
-
 		// Whitelist transient storage items
 		frame_benchmarking::benchmarking::add_to_whitelist(Author::<T>::hashed_key().to_vec().into());
 
@@ -72,27 +52,10 @@ benchmarks! {
 		assert!(RewardLocks::<T>::get(&author).iter().count() > 0);
 	}
 
-	// Worst case: Target user has `max_locks` which are all unlocked during this call.
-	unlock {
-		let miner = account("miner", 0, 0);
-		let max_locks = T::GenerateRewardLocks::max_locks(T::LockParametersBounds::get());
-		create_locks::<T>(&miner, max_locks);
-		let caller = whitelisted_caller();
-		frame_system::Module::<T>::set_block_number(max_locks.into());
-		assert_eq!(RewardLocks::<T>::get(&miner).iter().count() as u32, max_locks);
-	}: _(RawOrigin::Signed(caller), miner.clone())
-	verify {
-		assert_eq!(RewardLocks::<T>::get(&miner).iter().count(), 0);
-	}
-
 	set_schedule {
 
 	}: _(RawOrigin::Root, T::Currency::minimum_balance(), BTreeMap::new(), BTreeMap::new(), BTreeMap::new())
 
-	// Worst case: a new lock params is set.
-	set_lock_params {
-
-	}: _(RawOrigin::Root, LockParameters {period: 150, divide: 25} )
 }
 
 #[cfg(test)]
@@ -106,9 +69,7 @@ mod tests {
 		new_test_ext(0).execute_with(|| {
 			assert_ok!(test_benchmark_on_finalize::<Test>());
 			assert_ok!(test_benchmark_on_initialize::<Test>());
-			assert_ok!(test_benchmark_unlock::<Test>());
 			assert_ok!(test_benchmark_set_schedule::<Test>());
-			assert_ok!(test_benchmark_set_lock_params::<Test>());
 		});
 	}
 }

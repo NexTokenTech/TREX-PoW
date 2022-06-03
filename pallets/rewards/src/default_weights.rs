@@ -8,9 +8,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn on_initialize() -> Weight;
 	fn on_finalize() -> Weight;
-	fn unlock() -> Weight;
 	fn set_schedule() -> Weight;
-	fn set_lock_params() -> Weight;
 }
 
 /// Weights for pallet_balances using the Substrate node and recommended hardware.
@@ -27,16 +25,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
-	fn unlock() -> Weight {
-		(46_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
 	fn set_schedule() -> Weight {
 		(32_900_000 as Weight).saturating_add(T::DbWeight::get().writes(4 as Weight))
-	}
-	fn set_lock_params() -> Weight {
-		(0 as Weight).saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 }
 
@@ -53,15 +43,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
 	}
-	fn unlock() -> Weight {
-		(46_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
 	fn set_schedule() -> Weight {
 		(32_900_000 as Weight).saturating_add(RocksDbWeight::get().writes(4 as Weight))
-	}
-	fn set_lock_params() -> Weight {
-		(0 as Weight).saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 }

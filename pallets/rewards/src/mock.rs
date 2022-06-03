@@ -87,60 +87,10 @@ impl pallet_balances::Config for Test {
 const DOLLARS: Balance = 1;
 const DAYS: BlockNumber = 1;
 
-pub struct GenerateRewardLocks;
-impl crate::GenerateRewardLocks<Test> for GenerateRewardLocks {
-    fn generate_reward_locks(
-        current_block: BlockNumber,
-        total_reward: Balance,
-        lock_parameters: Option<LockParameters>,
-    ) -> BTreeMap<BlockNumber, Balance> {
-        let mut locks = BTreeMap::new();
-        let locked_reward = total_reward.saturating_sub(1 * DOLLARS);
-
-        if locked_reward > 0 {
-            let total_lock_period: BlockNumber;
-            let divide: BlockNumber;
-
-            if let Some(lock_parameters) = lock_parameters {
-                total_lock_period = u64::from(lock_parameters.period) * DAYS;
-                divide = u64::from(lock_parameters.divide);
-            } else {
-                total_lock_period = 100 * DAYS;
-                divide = 10;
-            }
-            for i in 0..divide {
-                let one_locked_reward = locked_reward / divide as u128;
-
-                let estimate_block_number =
-                    current_block.saturating_add((i + 1) * (total_lock_period / divide));
-                let actual_block_number = estimate_block_number / DAYS * DAYS;
-
-                locks.insert(actual_block_number, one_locked_reward);
-            }
-        }
-
-        locks
-    }
-
-    fn max_locks(lock_bounds: pallet_rewards::LockBounds) -> u32 {
-        // Max locks when a miner mines at least one block every day till the lock period of
-        // the first mined block ends.
-        cmp::max(100, u32::from(lock_bounds.period_max))
-    }
-}
-
-parameter_types! {
-	pub const LockBounds: pallet_rewards::LockBounds = pallet_rewards::LockBounds {period_max: 500, period_min: 20,
-																					divide_max: 50, divide_min: 2};
-}
-
 impl pallet_rewards::Config for Test {
     type Event = Event;
     type Currency = Balances;
-    // type DonationDestination = DonationDestination;
-    type GenerateRewardLocks = GenerateRewardLocks;
     type WeightInfo = ();
-    type LockParametersBounds = LockBounds;
 }
 
 // Build genesis storage according to the mock runtime.
