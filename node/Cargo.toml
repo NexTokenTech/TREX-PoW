@@ -48,6 +48,7 @@ sc-client-api = { version = "4.0.0-dev", git = "https://github.com/paritytech/su
 sp-runtime = { version = "5.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 sp-timestamp = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 sp-transaction-pool = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
+sp-keystore = { version = "^0.11.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.17" }
 
 # These dependencies are used for the Capsule node's RPCs
 jsonrpc-core = "18.0.0"

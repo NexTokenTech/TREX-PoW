@@ -34,6 +34,8 @@ pub const MAX_DIFFICULTY: u128 = 256_u128;//u128::MAX;
 
 /// Value of 1 CAP.
 pub const DOLLARS: u128 = 1_000_000_000_000;
+/// Value of Current Miner Reward
+pub const REWARD_VALUE: u128 = 60;
 /// Value of cents relative to CAP.
 pub const CENTS: u128 = DOLLARS / 100;
 /// Value of millicents relative to CAP.

@@ -10,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg(feature = "std")]
 pub mod genesis;
 
+use cp_constants::{Difficulty, DAYS, DOLLARS};
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -19,11 +20,12 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
+use sp_std::{cmp, collections::btree_map::BTreeMap};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use cp_constants::Difficulty;
 // A few exports that help ease life for downstream crates.
+use cp_constants::BLOCK_TIME_SEC; //SLOT_DURATION
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{KeyOwnerProofSystem, Randomness, StorageInfo},
@@ -33,13 +35,13 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
-use cp_constants::{BLOCK_TIME_SEC};//SLOT_DURATION
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::CurrencyAdapter;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+mod weights;
 
 /// Import the difficulty pallet.
 pub use pallet_difficulty;
@@ -231,6 +233,12 @@ parameter_types! {
 	pub const TargetBlockTime: u64 = BLOCK_TIME_SEC as u64;
 }
 
+impl pallet_rewards::Config for Runtime {
+	type Event = Event;
+	type Currency = Balances;
+	type WeightInfo = weights::rewards::WeightInfo<Self>;
+}
+
 /// Configure the pallet-difficulty in pallets/difficulty.
 impl pallet_difficulty::Config for Runtime {
 	type TargetBlockTime = TargetBlockTime;
@@ -261,7 +269,8 @@ construct_runtime!(
 		// Include the custom logic from the pallet-difficulty in the runtime.
 		DifficultyModule: pallet_difficulty,
 		StorageModule: pallet_storage,
-		CapsuleModule: pallet_capsule
+		CapsuleModule: pallet_capsule,
+		Rewards: pallet_rewards,
 	}
 );
 

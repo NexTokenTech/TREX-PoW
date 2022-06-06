@@ -19,14 +19,25 @@ use sc_service::{
 };
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_blockchain::HeaderBackend;
-use sp_core::{Decode, Encode, U256};
-use sp_runtime::generic::BlockId;
+use sp_core::{
+	crypto::{Ss58Codec, UncheckedFrom},
+	Pair, H256,
+	Decode, Encode, U256
+};
+use sp_runtime::{
+	generic::{BlockId}
+};
 use std::{collections::HashMap, io::Read, sync::Arc, thread, time::Duration};
 
 use async_std::{
 	fs::{File, OpenOptions},
 	prelude::*,
 };
+
+use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use std::path::PathBuf;
+use log::warn;
+use std::str::FromStr;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -45,6 +56,48 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 
 	fn native_version() -> sc_executor::NativeVersion {
 		capsule_runtime::native_version()
+	}
+}
+
+pub fn decode_author(
+	author: Option<&str>,
+	keystore: SyncCryptoStorePtr,
+	keystore_path: Option<PathBuf>,
+) -> Result<capsule_pow::app::Public, String> {
+	if let Some(author) = author {
+		if author.starts_with("0x") {
+			Ok(capsule_pow::app::Public::unchecked_from(
+				H256::from_str(&author[2..]).map_err(|_| "Invalid author account".to_string())?,
+			)
+				.into())
+		} else {
+			let (address, _) = capsule_pow::app::Public::from_ss58check_with_version(author)
+				.map_err(|_| "Invalid author address".to_string())?;
+			Ok(address)
+		}
+	} else {
+		dbg!("The node is configured for mining, but no author key is provided.");
+
+		let (pair, phrase, _) = capsule_pow::app::Pair::generate_with_phrase(None);
+
+		SyncCryptoStore::insert_unknown(
+			&*keystore.as_ref(),
+			capsule_pow::app::ID,
+			&phrase,
+			pair.public().as_ref(),
+		)
+			.map_err(|e| format!("Registering mining key failed: {:?}", e))?;
+
+		match keystore_path {
+			Some(path) => {
+				dbg!("You can go to {:?} to find the seed phrase of the mining key.", path);
+			},
+			None => {
+				warn!("Keystore is not local. This means that your mining key will be lost when exiting the program. This should only happen if you are in dev mode.");
+			}
+		}
+
+		Ok(pair.public())
 	}
 }
 
@@ -389,7 +442,11 @@ pub fn string_to_blake3(keychain_file_str: &str) -> Hash {
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, ServiceError> {
+pub fn new_full(
+	config: Configuration,
+	mining: bool,
+	author: Option<&str>
+) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -424,7 +481,10 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 	let is_authority = config.role.is_authority();
 	let prometheus_registry = config.prometheus_registry().cloned();
 
+	let keystore_path = config.keystore.path().map(|p| p.to_owned());
+
 	if is_authority {
+		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			Arc::clone(&client),
@@ -451,7 +511,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 				Arc::clone(&network),
 				Arc::clone(&network),
 				// Here, the pre-runtime item is the public key for time release encryption.
-				None,
+				Some(author.encode()),
 				// For block production we want to provide our inherent data provider
 				|_parent, ()| async {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
@@ -521,6 +581,7 @@ pub fn new_full(config: Configuration, mining: bool) -> Result<TaskManager, Serv
 							pre_hash: metadata.pre_hash,
 							nonce: U256::from(0i32),
 						};
+
 						if let Some(new_seal) =
 							seal.try_cpu_mining(&mut compute, seed, updated_pubkey)
 						{
