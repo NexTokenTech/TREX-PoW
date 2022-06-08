@@ -15,16 +15,57 @@
 # limitations under the License.
 
 # ===== START FIRST STAGE ======
+#FROM paritytech/ci-linux:974ba3ac-20201006 as builder
+#LABEL maintainer "kaisuki@qq.com"
+#LABEL description="capsule builder."
+
+# ===== START FIRST STAGE ======
 FROM phusion/baseimage:0.11 as builder
 LABEL maintainer "kaisuki@qq.com"
 LABEL description="capsule builder."
 
 ARG PROFILE=release
-ARG STABLE=nightly-2021-09-12
+ARG STABLE=nightly
 WORKDIR /rustbuilder
 COPY . /rustbuilder/capsule
 
 # PREPARE OPERATING SYSTEM & BUILDING ENVIRONMENT
-RUN apt-get update
-RUN apt install curl build-essential gcc make libcurl4 libssl1.1 -y
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+RUN apt-get update && \
+	apt-get install -y pkg-config libssl-dev git clang libclang-dev diffutils gcc make m4
+
+# UPDATE RUST DEPENDENCIES
+ENV RUSTUP_HOME "/rustbuilder/.rustup"
+ENV CARGO_HOME "/rustbuilder/.cargo"
+RUN curl -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y
+ENV PATH "$PATH:/rustbuilder/.cargo/bin"
+RUN rustup update $STABLE
+
+# BUILD RUNTIME AND BINARY
+RUN rustup target add wasm32-unknown-unknown --toolchain $STABLE
+RUN cd /rustbuilder/capsule && RUSTC_BOOTSTRAP=1 cargo +nightly build --$PROFILE --locked
+# ===== END FIRST STAGE ======
+
+# ===== START SECOND STAGE ======
+FROM phusion/baseimage:0.11
+LABEL maintainer "kaisuki@qq.com"
+LABEL description="capsule binary."
+ARG PROFILE=release
+COPY --from=builder /rustbuilder/capsule/target/$PROFILE/capsule-node /usr/local/bin
+
+# REMOVE & CLEANUP
+RUN mv /usr/share/ca* /tmp && \
+	rm -rf /usr/share/*  && \
+	mv /tmp/ca-certificates /usr/share/ && \
+	rm -rf /usr/lib/python* && \
+	mkdir -p /root/.local/share/capsule && \
+	ln -s /root/.local/share/capsule /data
+RUN	rm -rf /usr/bin /usr/sbin
+
+# FINAL PREPARATIONS
+EXPOSE 30333 9933 9944
+VOLUME ["/data"]
+#CMD ["/usr/local/bin/capsule"]
+WORKDIR /usr/local/bin
+ENTRYPOINT ["capsule-node"]
+CMD ["--chain=capsule"]
+# ===== END SECOND STAGE ======
