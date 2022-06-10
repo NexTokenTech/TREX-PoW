@@ -20,8 +20,8 @@
 #LABEL description="capsule builder."
 
 # ===== START FIRST STAGE ======
-FROM phusion/baseimage:0.11 as builder
-LABEL maintainer "kaisuki@qq.com"
+FROM phusion/baseimage:jammy-1.0.0 as builder
+LABEL maintainer "team@capsule.ink"
 LABEL description="capsule builder."
 
 ARG PROFILE=release
@@ -31,13 +31,15 @@ COPY . /rustbuilder/capsule
 
 # PREPARE OPERATING SYSTEM & BUILDING ENVIRONMENT
 RUN apt-get update && \
-	apt-get install -y pkg-config libssl-dev git clang libclang-dev diffutils gcc make m4
+	apt-get install -y pkg-config libssl-dev git clang libclang-dev diffutils gcc make m4 build-essential curl file
 
 # UPDATE RUST DEPENDENCIES
 ENV RUSTUP_HOME "/rustbuilder/.rustup"
 ENV CARGO_HOME "/rustbuilder/.cargo"
+
 RUN curl -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y
 ENV PATH "$PATH:/rustbuilder/.cargo/bin"
+RUN rustup show
 RUN rustup update $STABLE
 
 # BUILD RUNTIME AND BINARY
@@ -46,8 +48,8 @@ RUN cd /rustbuilder/capsule && RUSTC_BOOTSTRAP=1 cargo +nightly build --$PROFILE
 # ===== END FIRST STAGE ======
 
 # ===== START SECOND STAGE ======
-FROM phusion/baseimage:0.11
-LABEL maintainer "kaisuki@qq.com"
+FROM phusion/baseimage:jammy-1.0.0
+LABEL maintainer "team@capsule.ink"
 LABEL description="capsule binary."
 ARG PROFILE=release
 COPY --from=builder /rustbuilder/capsule/target/$PROFILE/capsule-node /usr/local/bin
@@ -67,5 +69,5 @@ VOLUME ["/data"]
 #CMD ["/usr/local/bin/capsule"]
 WORKDIR /usr/local/bin
 ENTRYPOINT ["capsule-node"]
-CMD ["--chain=capsule"]
-# ===== END SECOND STAGE ======
+#CMD ["--chain=capsule"]
+#===== END SECOND STAGE ======
