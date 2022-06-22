@@ -160,7 +160,7 @@ pub mod pallet {
 					.unwrap_or(DIFFICULTY_DEFAULT)
 					.checked_add_signed(adj_ts)
 					.unwrap_or(MIN_DIFFICULTY);
-				let mut difficulty_final = MIN_DIFFICULTY;
+				let difficulty_final;
 				if difficulty < MIN_DIFFICULTY {
 					difficulty_final = MIN_DIFFICULTY;
 				} else if difficulty > MAX_DIFFICULTY {

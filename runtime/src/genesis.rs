@@ -2,7 +2,7 @@ use super::{
 	AccountId, BalancesConfig, DifficultyModuleConfig, GenesisConfig, RewardsConfig, Signature,
 	SudoConfig, SystemConfig, TransactionPaymentConfig,
 };
-use core::default::Default as cDefault;
+// use core::default::Default as cDefault;
 use cp_constants::{DOLLARS, MIN_DIFFICULTY, REWARD_VALUE};
 use sp_core::{sr25519, Pair};
 use sp_runtime::traits::{IdentifyAccount, Verify};

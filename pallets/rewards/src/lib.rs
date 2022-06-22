@@ -1,17 +1,17 @@
 #![feature(mixed_integer_ops)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode};
 use core::default::Default;
 use frame_support::{
-	traits::{Currency, Get, LockIdentifier, LockableCurrency, WithdrawReasons},
+	traits::{Currency, LockIdentifier, LockableCurrency},
 	weights::Weight,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::{ensure_root};
 pub use pallet::*;
-use scale_info::TypeInfo;
+// use scale_info::TypeInfo;
 use sp_consensus_pow::POW_ENGINE_ID;
-use sp_runtime::traits::{Saturating, Zero};
+use sp_runtime::traits::{Zero};
 use sp_std::{
 	collections::btree_map::BTreeMap, iter::FromIterator, ops::Bound::Included, prelude::*,
 };
@@ -32,7 +32,7 @@ pub trait WeightInfo {
 	fn set_schedule() -> Weight;
 }
 
-const REWARDS_ID: LockIdentifier = *b"rewards ";
+// const REWARDS_ID: LockIdentifier = *b"rewards ";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -199,7 +199,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn do_reward(author: &T::AccountId, reward: BalanceOf<T>, when: T::BlockNumber) {
+	pub fn do_reward(author: &T::AccountId, reward: BalanceOf<T>, _when: T::BlockNumber) {
 		let miner_total = reward;
 
 		drop(T::Currency::deposit_creating(&author, miner_total));

@@ -6,7 +6,7 @@ use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Basic PoW Node".into()
+		"Capsule PoW Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -22,7 +22,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/substrate-developer-hub/recipes/issues".into()
+		"https://github.com/NexTokenTech/Capsule/issues".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -33,6 +33,7 @@ impl SubstrateCli for Cli {
 		Ok(match id {
 			"dev" => Box::new(chain_spec::dev_config()?),
 			"" | "local" => Box::new(chain_spec::local_testnet_config()?),
+			"testnet" => Box::new(chain_spec::cloud_testnet_config()),
 			path => {
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
 			},
