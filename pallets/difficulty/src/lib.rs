@@ -1,5 +1,5 @@
-#![feature(associated_type_defaults)]
-#![feature(mixed_integer_ops)]
+// #![feature(associated_type_defaults)]
+// #![feature(mixed_integer_ops)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cp_constants::{
@@ -156,10 +156,13 @@ pub mod pallet {
 				let adj_ts = clamp(block_time_window, ts_delta);
 
 				// Difficulty adjustment and storage
-				let difficulty = Self::difficulty()
-					.unwrap_or(DIFFICULTY_DEFAULT)
-					.checked_add_signed(adj_ts)
-					.unwrap_or(MIN_DIFFICULTY);
+				let mut difficulty = Self::difficulty()
+					.unwrap_or(DIFFICULTY_DEFAULT);
+				if adj_ts > 0 {
+					difficulty = difficulty + adj_ts as u128;
+				}else{
+					difficulty = difficulty - adj_ts as u128;
+				}
 				let difficulty_final;
 				if difficulty < MIN_DIFFICULTY {
 					difficulty_final = MIN_DIFFICULTY;
