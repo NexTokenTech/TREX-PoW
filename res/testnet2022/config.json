@@ -2,9 +2,7 @@
   "name": "Capsule AWS testnet 2022",
   "id": "testnet2022",
   "chainType": "Live",
-  "bootNodes": [
-    "/dns/ec2-44-201-116-209.compute-1.amazonaws.com/tcp/30333/p2p/12D3KooWNhpYsHsJEZ9J3sz2iP97Hc2HF8Rn2u9V5UBsUU2gMT9Q"
-  ],
+  "bootNodes": [],
   "telemetryEndpoints": null,
   "protocolId": "capsuledev",
   "properties": {
