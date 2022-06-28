@@ -19,11 +19,12 @@
 
 //! Tests for Rewards Pallet
 
-use crate::mock::*;
-use crate::*;
-use frame_support::error::BadOrigin;
-use frame_support::traits::{OnFinalize, OnInitialize};
-use frame_support::{assert_noop, assert_ok};
+use crate::{mock::*, *};
+use frame_support::{
+	assert_noop, assert_ok,
+	error::BadOrigin,
+	traits::{OnFinalize, OnInitialize},
+};
 use frame_system::Event;
 use pallet_balances::Error as BalancesError;
 use sp_runtime::{testing::DigestItem, Digest};
@@ -42,13 +43,7 @@ fn run_to_block(n: u64, author: u64) {
 		let current_block = System::block_number() + 1;
 		let parent_hash = System::parent_hash();
 		let pre_digest = DigestItem::PreRuntime(sp_consensus_pow::POW_ENGINE_ID, author.encode());
-		System::initialize(
-			&current_block,
-			&parent_hash,
-			&Digest {
-				logs: vec![pre_digest],
-			}
-		);
+		System::initialize(&current_block, &parent_hash, &Digest { logs: vec![pre_digest] });
 		System::set_block_number(current_block);
 
 		Balances::on_initialize(System::block_number());
@@ -71,29 +66,14 @@ fn genesis_config_works() {
 fn set_reward_works() {
 	new_test_ext(1).execute_with(|| {
 		// Fails with bad origin
-		assert_noop!(
-			Rewards::set_schedule(
-				Origin::signed(1),
-				42,
-				Default::default()
-			),
-			BadOrigin
-		);
+		assert_noop!(Rewards::set_schedule(Origin::signed(1), 42, Default::default()), BadOrigin);
 		// Successful
-		assert_ok!(Rewards::set_schedule(
-			Origin::root(),
-			42,
-			Default::default()
-		));
+		assert_ok!(Rewards::set_schedule(Origin::root(), 42, Default::default()));
 		assert_eq!(Reward::<Test>::get(), 42);
 		assert_eq!(last_event(), Event::ScheduleSet.into());
 		// Fails when too low
 		assert_noop!(
-			Rewards::set_schedule(
-				Origin::root(),
-				0,
-				Default::default()
-			),
+			Rewards::set_schedule(Origin::root(), 0, Default::default()),
 			Error::<Test>::RewardTooLow
 		);
 	});
@@ -115,11 +95,7 @@ fn reward_payment_works() {
 		assert_eq!(Balances::free_balance(1), 60);
 
 		// Set new reward
-		assert_ok!(Rewards::set_schedule(
-			Origin::root(),
-			42,
-			Default::default()
-		));
+		assert_ok!(Rewards::set_schedule(Origin::root(), 42, Default::default()));
 		run_to_block(3, 1);
 		assert_eq!(Balances::free_balance(2), 42);
 	});
@@ -133,15 +109,8 @@ fn test_curve() -> Vec<(u64, u128)> {
 fn curve_works() {
 	new_test_ext(1).execute_with(|| {
 		// Set reward curve
-		assert_ok!(Rewards::set_schedule(
-			Origin::root(),
-			60,
-			test_curve()
-		));
-		assert_eq!(
-			last_event(),
-			mock::Event::Rewards(crate::Event::<Test>::ScheduleSet)
-		);
+		assert_ok!(Rewards::set_schedule(Origin::root(), 60, test_curve()));
+		assert_eq!(last_event(), mock::Event::Rewards(crate::Event::<Test>::ScheduleSet));
 		// Check current reward
 		assert_eq!(Rewards::reward(), 60);
 		run_to_block(9, 1);
@@ -150,10 +119,7 @@ fn curve_works() {
 		// Update successful
 		assert_eq!(Rewards::reward(), 100);
 		// Success reported
-		assert_eq!(
-			last_event(),
-			mock::Event::Rewards(crate::Event::<Test>::RewardChanged(100))
-		);
+		assert_eq!(last_event(), mock::Event::Rewards(crate::Event::<Test>::RewardChanged(100)));
 		run_to_block(20, 1);
 		assert_eq!(Rewards::reward(), 50);
 		// No change, not part of the curve
@@ -170,4 +136,3 @@ fn curve_works() {
 		assert_eq!(Rewards::reward(), 20);
 	});
 }
-

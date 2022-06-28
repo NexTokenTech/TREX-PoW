@@ -1,17 +1,17 @@
 // #![feature(mixed_integer_ops)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode};
+use codec::Decode;
 use core::default::Default;
 use frame_support::{
-	traits::{Currency, LockIdentifier, LockableCurrency},
+	traits::{Currency, LockableCurrency},
 	weights::Weight,
 };
-use frame_system::{ensure_root};
+use frame_system::ensure_root;
 pub use pallet::*;
 // use scale_info::TypeInfo;
 use sp_consensus_pow::POW_ENGINE_ID;
-use sp_runtime::traits::{Zero};
+use sp_runtime::traits::Zero;
 use sp_std::{
 	collections::btree_map::BTreeMap, iter::FromIterator, ops::Bound::Included, prelude::*,
 };
@@ -60,7 +60,7 @@ pub mod pallet {
 		/// Reward has been sent.
 		Rewarded(T::AccountId, BalanceOf<T>),
 		/// Reward has been changed.
-		RewardChanged(BalanceOf<T>)
+		RewardChanged(BalanceOf<T>),
 	}
 
 	/// Type alias for currency balance.
@@ -100,9 +100,7 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			Self {
-				rewards: Default::default(),
-			}
+			Self { rewards: Default::default() }
 		}
 	}
 

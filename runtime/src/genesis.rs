@@ -53,6 +53,6 @@ pub fn testnet_genesis(
 		},
 		sudo: SudoConfig { key: Some(root_key) },
 		transaction_payment: TransactionPaymentConfig {},
-		rewards: RewardsConfig { rewards: REWARD_VALUE * DOLLARS}
+		rewards: RewardsConfig { rewards: REWARD_VALUE * DOLLARS },
 	}
 }
