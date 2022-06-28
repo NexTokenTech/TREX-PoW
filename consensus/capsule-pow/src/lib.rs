@@ -51,12 +51,10 @@ impl Seal {
 		seed: U256,
 		pre_pubkey: RawPublicKey,
 	) -> Option<Self> {
-		let mut rand = RandState::new_mersenne_twister();
 		let seed_int = u256_bigint(&seed);
 		let old_pubkey = pre_pubkey;
 		let difficulty = compute.get_difficulty();
-		let raw_pubkey = old_pubkey.yield_pubkey(&mut rand, difficulty as u32);
-		let pubkey = PublicKey::from_raw(raw_pubkey);
+		let pubkey = PublicKey::from_raw(old_pubkey);
 		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {
 			// if find the solutions, build a new seal.
 			Some(Seal {
