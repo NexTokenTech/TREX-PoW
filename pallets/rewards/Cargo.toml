@@ -14,9 +14,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
-sp-runtime = { version = "5.0.0",default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+sp-runtime = { version = "6.0.0",default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 sp-std = { version = "4.0.0-dev",default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 sp-inherents = { version = "4.0.0-dev",default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 sp-consensus-pow = { version = "0.10.0-dev",default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
@@ -30,8 +30,8 @@ cp-constants = { path = "../../primitives/constants"}
 frame-benchmarking = { version = "4.0.0-dev",default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24", optional = true }
 
 [dev-dependencies]
-sp-core = { version = "5.0.0", default-features = false,git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24"}
-sp-io = { version = "5.0.0", default-features = false,git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
+sp-core = { version = "6.0.0", default-features = false,git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24"}
+sp-io = { version = "6.0.0", default-features = false,git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24"}
 
 [features]
