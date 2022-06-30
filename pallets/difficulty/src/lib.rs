@@ -3,7 +3,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use cp_constants::{
-	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, MAX_DIFFICULTY, MIN_DIFFICULTY,
+	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, INIT_DIFFICULTY, MAX_DIFFICULTY,
+	MIN_DIFFICULTY,
 };
 use fast_math::log2;
 use frame_support::traits::OnTimestampSet;
@@ -107,7 +108,7 @@ pub mod pallet {
 
 	impl<T: Config> OnTimestampSet<T::Moment> for Pallet<T> {
 		fn on_timestamp_set(moment: T::Moment) {
-			const DIFFICULTY_DEFAULT: Difficulty = MIN_DIFFICULTY as Difficulty;
+			const DIFFICULTY_DEFAULT: Difficulty = INIT_DIFFICULTY as Difficulty;
 			// Get target time window size
 			let block_time =
 				UniqueSaturatedInto::<u128>::unique_saturated_into(T::TargetBlockTime::get());
@@ -119,7 +120,7 @@ pub mod pallet {
 			// get the window current_height
 			let mut current_height = CurrentHeight::<T>::get().unwrap_or(0u32);
 
-			// panic if current height pointer is over the boundray.
+			// panic if current height pointer is over the boundary.
 			if current_height >= DIFFICULTY_ADJUST_WINDOW as u32 {
 				panic!("current height pointer out of bounds!");
 			}
@@ -131,7 +132,8 @@ pub mod pallet {
 					difficulty: Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT),
 				});
 
-				// Calculates the actual time interval within DIFFICULTY_ADJUST_WINDOW,consider whether to add damped oscillation.
+				// Calculates the actual time interval within DIFFICULTY_ADJUST_WINDOW,consider
+				// whether to add damped oscillation.
 				let mut ts_delta = 0u128;
 				for i in 1..(DIFFICULTY_ADJUST_WINDOW as usize) {
 					let prev: Option<u128> =
@@ -156,11 +158,10 @@ pub mod pallet {
 				let adj_ts = clamp(block_time_window, ts_delta);
 
 				// Difficulty adjustment and storage
-				let mut difficulty = Self::difficulty()
-					.unwrap_or(DIFFICULTY_DEFAULT);
+				let mut difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT);
 				if adj_ts > 0 {
 					difficulty = difficulty + adj_ts as u128;
-				}else{
+				} else {
 					difficulty = difficulty - adj_ts as u128;
 				}
 				let difficulty_final;

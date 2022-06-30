@@ -29,33 +29,30 @@ pub type InherentType = String;
 // TODO: Remove in the future. https://github.com/paritytech/substrate/issues/8029
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
-    custom_value: InherentType,
+	custom_value: InherentType,
 }
-
 
 #[cfg(feature = "std")]
 impl InherentDataProvider {
-    /// Create `Self` while using the default value to get the String.
-    pub fn from_default_value() -> Self {
-        Self {
-            custom_value: "hello".to_string(),
-        }
-    }
+	/// Create `Self` while using the default value to get the String.
+	pub fn from_default_value() -> Self {
+		Self { custom_value: "hello".to_string() }
+	}
 }
 
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
 impl sp_inherents::InherentDataProvider for InherentDataProvider {
-    fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
-        inherent_data.put_data(INHERENT_IDENTIFIER, &self.custom_value)
-    }
+	fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), Error> {
+		inherent_data.put_data(INHERENT_IDENTIFIER, &self.custom_value)
+	}
 
-    async fn try_handle_error(
-        &self,
-        _: &InherentIdentifier,
-        _: &[u8],
-    ) -> Option<Result<(), Error>> {
-        // There is no error anymore
-        None
-    }
+	async fn try_handle_error(
+		&self,
+		_: &InherentIdentifier,
+		_: &[u8],
+	) -> Option<Result<(), Error>> {
+		// There is no error anymore
+		None
+	}
 }

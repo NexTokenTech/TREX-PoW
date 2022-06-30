@@ -1,17 +1,11 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use blake3::Hash;
-use capsule_pow::genesis::genesis_seal;
 use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
-use capsule_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
+use capsule_runtime::{self, opaque::Block, RuntimeApi};
 use cp_constants::{
-	Difficulty, KEYCHAIN_HASH_FILE_PATH, KEYCHAIN_HASH_KEY, KEYCHAIN_MAP_FILE_PATH, MAX_DIFFICULTY,
-	MINNING_WORKER_BUILD_TIME, MINNING_WORKER_TIMEOUT, MIN_DIFFICULTY,
+	MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT, INIT_DIFFICULTY,
 };
-use elgamal_capsule::{KeyGenerator, RawPublicKey};
-use futures::executor::block_on;
-use futures::join;
-use rug::rand::RandState;
+use futures::{executor::block_on};
 use sc_client_api::{Backend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{
@@ -21,23 +15,14 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_blockchain::HeaderBackend;
 use sp_core::{
 	crypto::{Ss58Codec, UncheckedFrom},
-	Pair, H256,
-	Decode, Encode, U256
+	Decode, Encode, Pair, H256, U256,
 };
-use sp_runtime::{
-	generic::{BlockId}
-};
-use std::{collections::HashMap, io::Read, sync::Arc, thread, time::Duration};
+use sp_runtime::generic::BlockId;
+use std::{sync::Arc, thread, time::Duration};
 
-use async_std::{
-	fs::{File, OpenOptions},
-	prelude::*,
-};
-
-use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-use std::path::PathBuf;
 use log::warn;
-use std::str::FromStr;
+use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use std::{path::PathBuf, str::FromStr};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -69,7 +54,7 @@ pub fn decode_author(
 			Ok(capsule_pow::app::Public::unchecked_from(
 				H256::from_str(&author[2..]).map_err(|_| "Invalid author account".to_string())?,
 			)
-				.into())
+			.into())
 		} else {
 			let (address, _) = capsule_pow::app::Public::from_ss58check_with_version(author)
 				.map_err(|_| "Invalid author address".to_string())?;
@@ -86,7 +71,7 @@ pub fn decode_author(
 			&phrase,
 			pair.public().as_ref(),
 		)
-			.map_err(|e| format!("Registering mining key failed: {:?}", e))?;
+		.map_err(|e| format!("Registering mining key failed: {:?}", e))?;
 
 		match keystore_path {
 			Some(path) => {
@@ -94,7 +79,7 @@ pub fn decode_author(
 			},
 			None => {
 				warn!("Keystore is not local. This means that your mining key will be lost when exiting the program. This should only happen if you are in dev mode.");
-			}
+			},
 		}
 
 		Ok(pair.public())
@@ -212,240 +197,11 @@ pub fn new_partial(
 	})
 }
 
-/// return pubkey for current difficulty at best number.
-pub fn get_updated_pubkey(
-	difficulty: &Difficulty,
-	keychain_map: &HashMap<Difficulty, HashMap<u32, String>>,
-) -> RawPublicKey {
-	let last_pubkey = match keychain_map.get(difficulty) {
-		Some(last_number_and_difficulty) => {
-			// get last number
-			let mut last_number = 0u32;
-			for item in last_number_and_difficulty.keys() {
-				last_number = item.to_owned();
-				break;
-			}
-			// get last number's pubkey for hex format
-			let last_pubkey_hex = last_number_and_difficulty.get(&last_number).unwrap();
-			// get last number's pubkey for bytes format
-			let last_pubkey_bytes = hex::decode(last_pubkey_hex).unwrap();
-			// decode to RawPublicKey struct
-			let last_pubkey = RawPublicKey::decode(&mut &last_pubkey_bytes[..]).unwrap();
-			last_pubkey
-		},
-		None => {
-			// Genesis generates pubkey
-			let seal = genesis_seal(*difficulty);
-			seal.pubkey
-		},
-	};
-	last_pubkey
-}
-
-/// update keychain's pubkey and overwrite to dest json file.
-pub fn update_keychains(
-	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
-	best_number: BlockNumber,
-) {
-	dbg!("start update pubkey");
-	let mut keychain_map_clone = keychain_map.clone();
-	let option_file = block_on(run_tasks(keychain_map, best_number));
-	if let Some(file) = option_file {
-		block_on(write_keychain_to_file(&mut keychain_map_clone, file));
-	}
-	dbg!("finished");
-}
-async fn run_tasks(
-	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
-	best_number: BlockNumber,
-) -> Option<File> {
-	// Join the two futures together
-	let result = join!(task_open_file(), task_pubkey(keychain_map, best_number));
-	result.0
-}
-pub async fn task_pubkey(
-	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
-	best_number: BlockNumber,
-) {
-	for difficulty_tmp in MIN_DIFFICULTY..(MAX_DIFFICULTY - 1) {
-		update_pubkey(keychain_map, &difficulty_tmp, &best_number);
-	}
-	dbg!("task1");
-}
-
-pub async fn task_open_file() -> Option<File> {
-	let f = OpenOptions::new()
-		.write(true)
-		.read(true)
-		.create(true)
-		.open(KEYCHAIN_MAP_FILE_PATH)
-		.await;
-	dbg!("task2 finished");
-	if f.is_ok() {
-		Some(f.unwrap())
-	} else {
-		None
-	}
-}
-
-pub async fn write_keychain_to_file(
-	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
-	mut keychain_file: File,
-) {
-	let json_str = serde_json::to_string(keychain_map).unwrap_or("".to_string());
-	let json_str_bytes = json_str.as_bytes();
-	let _write_result = keychain_file.write_all(json_str_bytes).await;
-
-	let contents = String::from_utf8(json_str_bytes.to_vec()).unwrap_or("".to_string());
-	let hash = string_to_blake3(&contents);
-
-	let f_hash = OpenOptions::new()
-		.write(true)
-		.create(true)
-		.read(true)
-		.truncate(true)
-		.open(KEYCHAIN_HASH_FILE_PATH)
-		.await;
-
-	if f_hash.is_ok() {
-		let mut file_hash = f_hash.unwrap();
-		let hash_value = serde_json::to_string(&hash.as_bytes()).unwrap_or("".to_string());
-		let _result = file_hash.write_all(hash_value.as_bytes()).await;
-		// write file using serde
-		dbg!("Successfully updated hash for keychain file");
-	}
-	dbg!("Successfully updated Keychain at best number");
-}
-
-/// update pubkey for dest difficulty at best_number
-pub fn update_pubkey(
-	keychain_map: &mut HashMap<Difficulty, HashMap<u32, String>>,
-	difficulty: &Difficulty,
-	best_number: &u32,
-) {
-	// init rand instance
-	let mut rand = RandState::new_mersenne_twister();
-
-	// get difficult and last_number for specified difficulty
-	let last_pubkey = match keychain_map.get(difficulty) {
-		Some(last_number_and_difficulty) => {
-			// get last number
-			let mut last_number = 0u32;
-			for item in last_number_and_difficulty.keys() {
-				last_number = item.to_owned();
-				break;
-			}
-			// get last number's pubkey for hex format
-			let last_pubkey_hex = last_number_and_difficulty.get(&last_number).unwrap();
-			// get last number's pubkey for bytes format
-			let last_pubkey_bytes = hex::decode(last_pubkey_hex).unwrap();
-			// decode to RawPublicKey struct
-			let last_pubkey = RawPublicKey::decode(&mut &last_pubkey_bytes[..]).unwrap();
-			// define pubkey for iteration
-			let mut iter_pubkey = last_pubkey;
-			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
-			for _ in last_number..*best_number {
-				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand, *difficulty as u32);
-				iter_pubkey = next_pubkey;
-			}
-			// return pubkey
-			iter_pubkey
-		},
-		None => {
-			// Genesis generates pubkey
-			let seal = genesis_seal(*difficulty);
-			// define pubkey for iteration
-			let mut iter_pubkey = seal.pubkey;
-			// Iteratively generate the pubkey corresponding to bestnumber for current difficulty
-			for _ in 0..*best_number {
-				let next_pubkey = iter_pubkey.yield_pubkey(&mut rand, *difficulty as u32);
-				iter_pubkey = next_pubkey;
-			}
-			// return pubkey
-			iter_pubkey
-		},
-	};
-
-	let last_pubkey_hex = hex::encode(&last_pubkey.encode());
-	// update(mutate or insert) keychain_map
-	if keychain_map.contains_key(&difficulty) {
-		if let Some(keymap) = keychain_map.get_mut(&difficulty) {
-			let mut keymap_tmp = HashMap::<u32, String>::new();
-			keymap_tmp.insert(best_number.to_owned(), last_pubkey_hex);
-			*keymap = keymap_tmp;
-		}
-	} else {
-		let mut keymap = HashMap::<u32, String>::new();
-		keymap.insert(best_number.to_owned(), last_pubkey_hex);
-		keychain_map.insert(difficulty.to_owned(), keymap);
-	}
-}
-
-pub fn keychain_map_from_json() -> HashMap<Difficulty, HashMap<u32, String>> {
-	// open file which stored old file hash
-	let f_hash = std::fs::OpenOptions::new()
-		.write(true)
-		.create(true)
-		.read(true)
-		.open(KEYCHAIN_HASH_FILE_PATH);
-
-	// default keychain map
-	let default_keychain_map: HashMap<Difficulty, HashMap<u32, String>> =
-		HashMap::<Difficulty, HashMap<u32, String>>::new();
-
-	// old hash bytes
-	let mut old_file_hash_bytes = vec![];
-	if f_hash.is_ok() {
-		let file_hash = f_hash.as_ref().unwrap();
-		old_file_hash_bytes = match serde_json::from_reader(file_hash) {
-			Ok(file_hash_bytes) => file_hash_bytes,
-			Err(_) => vec![],
-		};
-	}
-	// create a file instance for write and read.
-	let f_keychain = std::fs::OpenOptions::new()
-		.write(true)
-		.create(true)
-		.read(true)
-		.open(KEYCHAIN_MAP_FILE_PATH);
-	// get keychain map from json file.
-	if f_keychain.is_ok() {
-		let mut keychain_file = f_keychain.unwrap();
-		// use to record cur hash == old hash or not.
-		let mut is_validate = true;
-
-		// get cur keychain map file hash
-		let mut contents = String::new();
-		keychain_file.read_to_string(&mut contents).unwrap();
-		let cur_file_hash = string_to_blake3(&contents);
-
-		// get is_validate if old hash file is not empty.
-		if old_file_hash_bytes.len() != 0 {
-			let old_file_hash_u8_bytes: &[u8; 32] = &(&old_file_hash_bytes[..]).try_into().unwrap();
-			let old_file_hash = Hash::from(*old_file_hash_u8_bytes);
-			is_validate = old_file_hash == cur_file_hash;
-		}
-
-		if is_validate == true {
-			let keychain_map_read =
-				serde_json::from_str(&contents).unwrap_or(default_keychain_map.clone());
-			return keychain_map_read;
-		}
-	}
-	default_keychain_map
-}
-
-pub fn string_to_blake3(keychain_file_str: &str) -> Hash {
-	let hashmap_bytes = keychain_file_str.as_bytes();
-	let hash = blake3::keyed_hash(&KEYCHAIN_HASH_KEY, hashmap_bytes);
-	hash
-}
-
 /// Builds a new service for a full client.
 pub fn new_full(
 	config: Configuration,
 	mining: bool,
-	author: Option<&str>
+	author: Option<&str>,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -519,9 +275,9 @@ pub fn new_full(
 					Ok(timestamp)
 				},
 				// time to wait for a new block before starting to mine a new one
-				Duration::from_secs(MINNING_WORKER_TIMEOUT),
+				Duration::from_secs(MINING_WORKER_TIMEOUT),
 				// how long to take to actually build the block (i.e. executing extrinsics)
-				Duration::from_secs(MINNING_WORKER_BUILD_TIME),
+				Duration::from_secs(MINING_WORKER_BUILD_TIME),
 				can_author_with,
 			);
 
@@ -535,7 +291,6 @@ pub fn new_full(
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
 			let current_backend = backend.clone();
-			let mut keychain_map = keychain_map_from_json().clone();
 			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
@@ -546,52 +301,41 @@ pub fn new_full(
 					// info!("Current best block number: {}", best_num);
 					if best_num == 0 {
 						// genesis block does not have a a header, need to create a artificial seal.
-						return Some(genesis::genesis_seal(MIN_DIFFICULTY));
+						return Some(genesis::genesis_seal(INIT_DIFFICULTY))
 					}
 					if let Some(header) = blockchain.header(BlockId::Hash(best_hash)).unwrap() {
 						let mut digest = header.digest;
 						while let Some(item) = digest.pop() {
 							if let Some(raw_seal) = item.as_seal() {
 								let mut coded_seal = raw_seal.1;
-								return Some(Seal::decode(&mut coded_seal).unwrap());
+								return Some(Seal::decode(&mut coded_seal).unwrap())
 							}
 						}
 					}
 					None
 				};
 				// WARNING: do not use 0 as initial seed.
-				let mut seed = U256::from(1i32);
+				let mut mining_seed = U256::from(1i32);
 				loop {
 					let worker = Arc::clone(&worker);
 					let metadata = worker.metadata();
 					let seal = find_seal();
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
-						// info!("Found seal!");
-						//update keychains
-						let blockchain = current_backend.blockchain();
-						let chain_info = blockchain.info();
-						let block_number = chain_info.best_number;
-						update_keychains(&mut keychain_map, block_number);
-						dbg!("I get keychain here");
-						let updated_pubkey =
-							get_updated_pubkey(&metadata.difficulty, &keychain_map);
-
+						// dbg!("Found seal!");
 						let mut compute = Compute {
 							difficulty: metadata.difficulty,
 							pre_hash: metadata.pre_hash,
 							nonce: U256::from(0i32),
 						};
 
-						if let Some(new_seal) =
-							seal.try_cpu_mining(&mut compute, seed, updated_pubkey)
-						{
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed) {
 							// Found a new seal, reset the mining seed.
-							seed = U256::from(1i32);
+							mining_seed = U256::from(1i32);
 							block_on(worker.submit(new_seal.encode()));
 						} else {
-							seed = seed.saturating_add(U256::from(1i32));
-							if seed == U256::MAX {
-								seed = U256::from(0i32);
+							mining_seed = mining_seed.saturating_add(U256::from(1i32));
+							if mining_seed == U256::MAX {
+								mining_seed = U256::from(0i32);
 							}
 						}
 					} else {

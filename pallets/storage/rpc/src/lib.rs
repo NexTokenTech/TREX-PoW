@@ -2,11 +2,11 @@
 
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
+use pallet_storage_runtime_api::SumStorageApi as SumStorageRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
-use pallet_storage_runtime_api::SumStorageApi as SumStorageRuntimeApi;
 
 #[rpc]
 pub trait SumStorageApi<BlockHash> {
@@ -25,10 +25,7 @@ pub struct SumStorage<C, M> {
 impl<C, M> SumStorage<C, M> {
 	/// Create new `SumStorage` instance with the given reference to the client.
 	pub fn new(client: Arc<C>) -> Self {
-		Self {
-			client,
-			_marker: Default::default(),
-		}
+		Self { client, _marker: Default::default() }
 	}
 }
 

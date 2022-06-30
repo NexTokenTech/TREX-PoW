@@ -1,6 +1,8 @@
-use crate::chain_spec;
-use crate::cli::{Cli, Subcommand};
-use crate::service;
+use crate::{
+	chain_spec,
+	cli::{Cli, Subcommand},
+	service,
+};
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 
@@ -34,9 +36,8 @@ impl SubstrateCli for Cli {
 			"dev" => Box::new(chain_spec::dev_config()?),
 			"" | "local" => Box::new(chain_spec::local_testnet_config()?),
 			"testnet" => Box::new(chain_spec::cloud_testnet_config()),
-			path => {
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
-			},
+			path =>
+				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		})
 	}
 
@@ -101,9 +102,8 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.run_node_until_exit(|config| async move {
 				match config.role {
 					// full node has full parts but not mine
-					Role::Full => {
-						service::new_full(config, false, cli.author.as_ref().map(|s| s.as_str()))
-					},
+					Role::Full =>
+						service::new_full(config, false, cli.author.as_ref().map(|s| s.as_str())),
 					// authority node has full parts with mine
 					_ => service::new_full(config, true, cli.author.as_ref().map(|s| s.as_str())),
 				}

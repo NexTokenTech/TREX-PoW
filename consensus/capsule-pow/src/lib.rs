@@ -1,11 +1,14 @@
 pub mod generic;
 pub mod genesis;
+mod keychain;
 pub mod utils;
+
+use blake3;
 use codec::{Decode, Encode};
-use cp_constants::Difficulty;
+use cp_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
 use elgamal_capsule::{
-	elgamal::{RawKey, RawPublicKey, PublicKey, PrivateKey},
-	KeyGenerator,
+	elgamal::{PrivateKey, PublicKey, RawKey, RawPublicKey},
+	Seed,
 };
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
@@ -15,12 +18,12 @@ use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
-use blake3;
 
 // local packages.
 pub use crate::generic::{
 	CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, Solutions, State,
 };
+use keychain::{yield_pub_keys, RawKeySeeds};
 use utils::{bigint_u256, gen_bigint_range, u256_bigint};
 
 pub mod app {
@@ -38,9 +41,15 @@ const BIG_INT_0: Integer = Integer::ZERO;
 /// `RawSeal` type.
 #[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
 pub struct Seal {
+	/// Mining difficulty of current block sealed by this seal.
 	pub difficulty: Difficulty,
+	/// The public key being mined in current block.
 	pub pubkey: RawPublicKey,
+	/// A list of seeds to derive the public keys for next blocks.
+	pub seeds: RawKeySeeds,
+	/// A pair of solution for current time-lock puzzle found by mining current block.
 	pub solutions: Solutions<U256>,
+	/// A nonce value to seal and verify current mining works.
 	pub nonce: U256,
 }
 
@@ -48,18 +57,23 @@ impl Seal {
 	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(
 		&self,
 		compute: &mut C,
-		seed: U256,
-		pre_pubkey: RawPublicKey,
+		mining_seed: U256,
 	) -> Option<Self> {
-		let seed_int = u256_bigint(&seed);
-		let old_pubkey = pre_pubkey;
 		let difficulty = compute.get_difficulty();
-		let pubkey = PublicKey::from_raw(old_pubkey);
-		if let Some(solutions) = pollard_rho(pubkey.clone(), compute, seed_int) {
+		let keychain = yield_pub_keys(self.seeds.clone());
+		let new_pubkey = keychain[(difficulty - MIN_DIFFICULTY) as usize].clone();
+		let mut new_seeds: RawKeySeeds =
+			[U256::from(1i32); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		for (idx, key) in keychain.into_iter().enumerate() {
+			new_seeds[idx] = bigint_u256(&key.yield_seed());
+		}
+		if let Some(solutions) = pollard_rho(new_pubkey.clone(), compute, u256_bigint(&mining_seed))
+		{
 			// if find the solutions, build a new seal.
 			Some(Seal {
 				difficulty,
-				pubkey: pubkey.to_raw(),
+				pubkey: new_pubkey.to_raw(),
+				seeds: new_seeds,
 				solutions: (solutions.0.to_u256(), solutions.1.to_u256()),
 				nonce: compute.get_nonce(),
 			})
@@ -220,8 +234,8 @@ impl CycleFinding<Integer, U256> for State<Integer> {
 }
 
 /// A verifier contains methods to validate mining results.
-pub struct SolutionVerifier{
-	pub pubkey: PublicKey
+pub struct SolutionVerifier {
+	pub pubkey: PublicKey,
 }
 
 impl SolutionVerifier {
@@ -244,7 +258,7 @@ impl SolutionVerifier {
 		y_1 == y_2 && y_1 == work
 	}
 
-	pub fn key_gen(&self, solutions: &Solutions<Integer>) -> Option<PrivateKey>{
+	pub fn key_gen(&self, solutions: &Solutions<Integer>) -> Option<PrivateKey> {
 		if let Some(key) = utils::eqs_solvers(
 			&solutions.0.a,
 			&solutions.0.b,
@@ -260,11 +274,11 @@ impl SolutionVerifier {
 			} else {
 				new_key = key;
 			}
-			Some(PrivateKey{
+			Some(PrivateKey {
 				p: self.pubkey.p.clone(),
 				g: self.pubkey.g.clone(),
 				x: new_key,
-				bit_length: self.pubkey.bit_length.clone()
+				bit_length: self.pubkey.bit_length.clone(),
 			})
 		} else {
 			None
@@ -283,7 +297,7 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 
 	fn difficulty(&self, _parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
 		// Fixed difficulty hardcoded here
-		Ok(48 as Difficulty)
+		Ok(INIT_DIFFICULTY as Difficulty)
 	}
 
 	fn verify(
@@ -304,13 +318,13 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
 		let pubkey = PublicKey::from_raw(raw_key);
-		let verifier = SolutionVerifier {pubkey};
+		let verifier = SolutionVerifier { pubkey };
 		let solutions = (
 			Solution::<Integer>::from_u256(&seal.solutions.0),
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
-		if verifier.verify(&solutions,  &header) {
-			return Ok(true);
+		if verifier.verify(&solutions, &header) {
+			return Ok(true)
 		}
 
 		Ok(false)
@@ -380,16 +394,16 @@ where
 		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
 		let pubkey = PublicKey::from_raw(raw_key);
-		let verifier = SolutionVerifier {pubkey};
+		let verifier = SolutionVerifier { pubkey };
 		let solutions = (
 			Solution::<Integer>::from_u256(&seal.solutions.0),
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
 		if verifier.verify(&solutions, &header) {
-			return Ok(true);
+			return Ok(true)
 		}
 
-		Ok(true)
+		Ok(false)
 	}
 }
 
@@ -409,9 +423,9 @@ pub fn pollard_rho<C: Clone + Hash<Integer, U256>>(
 		state_2 = state_2.transit(&mut compute_2).unwrap().transit(&mut compute_2).unwrap();
 		if &state_1.work == &state_2.work {
 			if &state_1.solution != &state_2.solution {
-				return Some((state_1.solution, state_2.solution));
+				return Some((state_1.solution, state_2.solution))
 			}
-			return None;
+			return None
 		}
 		i += 1;
 	}
@@ -420,8 +434,8 @@ pub fn pollard_rho<C: Clone + Hash<Integer, U256>>(
 
 #[cfg(test)]
 mod tests {
+	use elgamal_capsule::KeyGenerator;
 	use super::*;
-	use crate::utils::eqs_solvers;
 	use rug::Integer;
 
 	#[test]
@@ -433,9 +447,9 @@ mod tests {
 		let h = Integer::from(1);
 		let old_pubkey = PublicKey { p, g, h, bit_length: difficulty };
 		let mut rand = RandState::new_mersenne_twister();
-		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand,difficulty);
+		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand, difficulty);
 		let pubkey = PublicKey::from_raw(raw_pubkey);
-		println!("{:?}",pubkey);
+		println!("{:?}", pubkey);
 		let mut loop_count = 0;
 		let limit = 10;
 		let mut seed = Integer::from(1);
@@ -448,12 +462,14 @@ mod tests {
 			if let Some(solutions) = pollard_rho(pubkey.clone(), &mut compute, seed.clone()) {
 				let verifier = SolutionVerifier { pubkey };
 				if let Some(key) = verifier.key_gen(&solutions) {
-					let validate = Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
+					let validate = Integer::from(
+						verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
+					);
 					assert_eq!(
 						&validate, &verifier.pubkey.h,
 						"The found private key is not valid!"
 					);
-					return;
+					return
 				} else {
 					panic!("Failed to derive private key!")
 				}
@@ -467,15 +483,15 @@ mod tests {
 	}
 
 	#[test]
-	fn gen_pub_key(){
+	fn gen_pub_key() {
 		let difficulty = 39u32;
 		let p = Integer::from(1);
 		let g = Integer::from(1);
 		let h = Integer::from(1);
 		let old_pubkey = PublicKey { p, g, h, bit_length: difficulty };
 		let mut rand = RandState::new_mersenne_twister();
-		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand,difficulty);
+		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand, difficulty);
 		let pubkey = PublicKey::from_raw(raw_pubkey);
-		println!("{:?}",pubkey);
+		println!("{:?}", pubkey);
 	}
 }

@@ -8,7 +8,7 @@ pub const BLOCK_TIME_SEC: usize = 60;
 /// Block time interval in milliseconds.
 pub const BLOCK_TIME_MILLISEC: usize = BLOCK_TIME_SEC * 1000;
 /// Slot duration inverval in milliseconds
-pub const SLOT_DURATION:u64 = BLOCK_TIME_MILLISEC as u64;
+pub const SLOT_DURATION: u64 = BLOCK_TIME_MILLISEC as u64;
 
 /// Nominal height for standard time intervals, hour is 60 blocks
 pub const HOUR_HEIGHT: usize = 3600 / BLOCK_TIME_SEC;
@@ -30,9 +30,9 @@ pub const DIFFICULTY_DAMP_FACTOR: u128 = 3;
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u128 = 32;
 /// Initial mining difficulty
-pub const INIT_DIFFICULTY: u128 = 59;
+pub const INIT_DIFFICULTY: u128 = 48;
 /// Maximum difficulty.
-pub const MAX_DIFFICULTY: u128 = 256_u128;//u128::MAX;
+pub const MAX_DIFFICULTY: u128 = 224;
 
 /// Value of 1 CAP.
 pub const DOLLARS: u128 = 1_000_000_000_000;
@@ -54,10 +54,6 @@ pub const HOURS: u32 = 60;
 /// Block number of one day.
 pub const DAYS: u32 = 24 * HOURS;
 
-pub const KEYCHAIN_MAP_FILE_PATH: &str = "keychain_map.json";
-pub const KEYCHAIN_HASH_FILE_PATH: &str = "keychain_hash.txt";
 pub const UPDATE_KEY_CHAIN_RANGE: u32 = 3;
-pub const MINNING_WORKER_TIMEOUT: u64 = 10;
-pub const MINNING_WORKER_BUILD_TIME: u64 = 10;
-pub const KEYCHAIN_HASH_KEY:[u8;32] = [42u8; 32];
-
+pub const MINING_WORKER_TIMEOUT: u64 = 10;
+pub const MINING_WORKER_BUILD_TIME: u64 = 10;
