@@ -29,6 +29,8 @@ pub const DIFFICULTY_DAMP_FACTOR: u128 = 3;
 /// Minimum difficulty, enforced in diff re-target
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u128 = 32;
+/// Initial mining difficulty
+pub const INIT_DIFFICULTY: u128 = 59;
 /// Maximum difficulty.
 pub const MAX_DIFFICULTY: u128 = 256_u128;//u128::MAX;
 

@@ -2,8 +2,8 @@ use super::{
 	AccountId, BalancesConfig, DifficultyModuleConfig, GenesisConfig, RewardsConfig, Signature,
 	SudoConfig, SystemConfig, TransactionPaymentConfig,
 };
-use core::default::Default as cDefault;
-use cp_constants::{DOLLARS, MIN_DIFFICULTY, REWARD_VALUE};
+// use core::default::Default as cDefault;
+use cp_constants::{DOLLARS, INIT_DIFFICULTY, REWARD_VALUE};
 use sp_core::{sr25519, Pair};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -47,7 +47,7 @@ pub fn testnet_genesis(
 ) -> GenesisConfig {
 	GenesisConfig {
 		system: SystemConfig { code: wasm_binary.to_vec() },
-		difficulty_module: DifficultyModuleConfig { initial_difficulty: MIN_DIFFICULTY },
+		difficulty_module: DifficultyModuleConfig { initial_difficulty: INIT_DIFFICULTY },
 		balances: BalancesConfig {
 			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
 		},

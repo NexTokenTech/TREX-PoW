@@ -1,13 +1,13 @@
 [package]
 name = "capsule-node"
 version = "4.0.0-dev"
-description = "A Capsule PoW node for decentralized time release encryption."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io/"
+description = "A Capsule PoW node for decentralized timed release encryption."
+authors = ["team@capsule.ink"]
+homepage = "https://capsule.ink/"
 edition = "2021"
 license = "Unlicense"
 publish = false
-repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
+repository = "https://github.com/NexTokenTech/Capsule.git"
 build = "build.rs"
 
 [package.metadata.docs.rs]

@@ -81,3 +81,8 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		None,
 	))
 }
+
+pub fn cloud_testnet_config() -> ChainSpec {
+	ChainSpec::from_json_bytes(&include_bytes!("../../res/testnet2022/config.json")[..])
+		.expect("Capsule testnet2022 config included is valid")
+}

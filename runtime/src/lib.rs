@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg(feature = "std")]
 pub mod genesis;
 
-use cp_constants::{Difficulty, DAYS, DOLLARS};
+use cp_constants::{Difficulty};
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -20,7 +20,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
-use sp_std::{cmp, collections::btree_map::BTreeMap};
+// use sp_std::{cmp, collections::btree_map::BTreeMap};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;

@@ -1,19 +1,12 @@
-# Capsule - Time Release Blockchain
+# Capsule - Decentralized Timed Release Encryption for Web3
 
-[![Try on playground](https://img.shields.io/badge/Playground-Node_Template-brightgreen?logo=Parity%20Substrate)](https://docs.substrate.io/playground/) [![Matrix](https://img.shields.io/matrix/substrate-technical:matrix.org)](https://matrix.to/#/#substrate-technical:matrix.org)
+A FRAME-based [Substrate](https://www.substrate.io/) node for timed-release encryption for Web3.
 
-A FRAME-based [Substrate](https://www.substrate.io/) node.
-
-## Getting Started
-
-Follow the steps below to get started with the Node Template, or get it up and running right from
-your browser in just a few clicks using
-the [Substrate Playground](https://docs.substrate.io/playground/) :hammer_and_wrench:
 
 ### Using Nix
 
 Install [nix](https://nixos.org/) and optionally [direnv](https://github.com/direnv/direnv) and
-[lorri](https://github.com/target/lorri) for a fully plug and play experience for setting up the
+[lorri](https://github.com/target/lorri) for a full plug and play experience for setting up the
 development environment. To get all the correct dependencies activate direnv `direnv allow` and
 lorri `lorri shell`.
 
@@ -36,6 +29,13 @@ without launching it:
 
 ```sh
 cargo build --release
+```
+
+### Build Custom Chain Spec
+
+Use below shell script as a reference to generate custom chain-spec json files:
+```sh
+./target/release/capsule-node build-spec --disable-default-bootnode --chain dev > config.json
 ```
 
 ### Embedded Docs
@@ -149,11 +149,7 @@ There are several files in the `node` directory - take special note of the follo
 - [`service.rs`](./node/src/service.rs): This file defines the node implementation. Take note of
   the libraries that this file imports and the names of the functions it invokes. In particular,
   there are references to consensus-related topics, such as the
-  [longest chain rule](https://docs.substrate.io/v3/advanced/consensus#longest-chain-rule),
-  the [Aura](https://docs.substrate.io/v3/advanced/consensus#aura) block authoring
-  mechanism and the
-  [GRANDPA](https://docs.substrate.io/v3/advanced/consensus#grandpa) finality
-  gadget.
+  [longest chain rule](https://docs.substrate.io/v3/advanced/consensus#longest-chain-rule)
 
 After the node has been [built](#build), refer to the embedded documentation to learn more about the
 capabilities and configuration parameters that it exposes:
