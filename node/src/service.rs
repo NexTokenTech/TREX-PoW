@@ -347,20 +347,16 @@ pub fn new_full(
 		}
 	}
 
-	// prepare rpc builder
-	let full_client = Arc::clone(&client);
-	let tx_pool = Arc::clone(&transaction_pool);
-	// here the arc pointer has to be cloned again so that every time this closure is called,
-	// the arc pointer counter will be incremented but the pointer is not moved into the closure.
-	let rpc_extensions_builder = Box::new(move |deny_unsafe, _| {
-		let deps = crate::rpc::FullDeps {
-			client: full_client.clone(),
-			pool: tx_pool.clone(),
-			deny_unsafe,
-		};
+	let rpc_extensions_builder = {
+		let client = client.clone();
+		let pool = transaction_pool.clone();
 
-		Ok(crate::rpc::create_full(deps))
-	});
+		Box::new(move |deny_unsafe, _| {
+			let deps =
+				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
+			crate::rpc::create_full(deps).map_err(Into::into)
+		})
+	};
 
 	// spawn rpc tasks
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -369,7 +365,7 @@ pub fn new_full(
 		keystore: keystore_container.sync_keystore(),
 		task_manager: &mut task_manager,
 		transaction_pool,
-		rpc_extensions_builder,
+		rpc_builder: rpc_extensions_builder,
 		backend,
 		system_rpc_tx,
 		config,

@@ -1,13 +1,13 @@
 // #![feature(associated_type_defaults)]
 // #![feature(mixed_integer_ops)]
 #![cfg_attr(not(feature = "std"), no_std)]
-
 use cp_constants::{
 	Difficulty, CLAMP_FACTOR, DIFFICULTY_ADJUST_WINDOW, INIT_DIFFICULTY, MAX_DIFFICULTY,
 	MIN_DIFFICULTY,
 };
 use fast_math::log2;
 use frame_support::traits::OnTimestampSet;
+#[cfg(not(feature = "std"))]
 use num_traits::float::FloatCore;
 pub use pallet::*;
 use sp_runtime::traits::UniqueSaturatedInto;
