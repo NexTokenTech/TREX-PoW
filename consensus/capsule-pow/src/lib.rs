@@ -87,9 +87,9 @@ impl Seal {
 /// The test is done by multiplying the two together. If the product
 /// overflows the bounds of U128, then the product (and thus the hash)
 /// was too high.
-// fn hash_meets_difficulty(seal_difficulty: &Difficulty, difficulty: Difficulty) -> bool {
-// 	seal_difficulty == &difficulty
-// }
+fn hash_meets_difficulty(seal_difficulty: &Difficulty, difficulty: Difficulty) -> bool {
+	seal_difficulty == &difficulty
+}
 
 /// A not-yet-computed attempt to solve the proof of work. Calling the
 /// compute method will compute the hash and return the seal.
@@ -250,12 +250,16 @@ impl SolutionVerifier {
 	fn verify(&self, solutions: &Solutions<Integer>, header: &Compute) -> bool {
 		let y_1 = self.derive(&solutions.0);
 		let y_2 = self.derive(&solutions.1);
+		if y_1 != y_2 {
+			dbg!("The solution is not valid, cannot pass the block verification!");
+			return false;
+		}
 		// if solutions are valid, verify the hash of nonce.
 		let hash_i = header.hash_integer().div_rem_euc(self.pubkey.p.clone()).1;
 		let nonce = u256_bigint(&header.nonce);
 		let state = State::<Integer>::from_pub_key(self.pubkey.clone(), Integer::from(1));
 		let work = state.func_f(&hash_i, &nonce).unwrap();
-		y_1 == y_2 && y_1 == work
+		y_1 == work
 	}
 
 	pub fn key_gen(&self, solutions: &Solutions<Integer>) -> Option<PrivateKey> {
@@ -384,11 +388,11 @@ where
 			Err(_) => return Ok(false),
 		};
 
-		// TODO:// difficulty verify
 		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
-		// if !hash_meets_difficulty(&seal.difficulty, difficulty) {
-		// 	return Ok(false);
-		// }
+		if !hash_meets_difficulty(&seal.difficulty, difficulty) {
+			dbg!("The current node difficulty cannot match the difficulty in header's seal!");
+			return Ok(false);
+		}
 
 		// Make sure the provided work actually comes from the correct pre_hash
 		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
@@ -402,7 +406,7 @@ where
 		if verifier.verify(&solutions, &header) {
 			return Ok(true)
 		}
-
+		dbg!("The block header cannot be verified!");
 		Ok(false)
 	}
 }
