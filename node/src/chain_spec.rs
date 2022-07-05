@@ -27,7 +27,7 @@ pub fn dev_config() -> Result<ChainSpec, String> {
 			json!({
 				"ss58Format": 16,
 				"tokenDecimals": 12,
-				"tokenSymbol": "CPSD"
+				"tokenSymbol": "TREXD"
 			})
 			.as_object()
 			.expect("Created an object")
@@ -72,7 +72,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 			json!({
 				"ss58Format": 16,
 				"tokenDecimals": 12,
-				"tokenSymbol": "CPSD"
+				"tokenSymbol": "TREXD"
 			})
 			.as_object()
 			.expect("Created an object")
