@@ -2,16 +2,16 @@ version: "3.2"
 
 services:
   dev:
-    container_name: capsule-node
+    container_name: trex-node
     image: paritytech/ci-linux:974ba3ac-20201006
-    working_dir: /var/www/capsule-node
+    working_dir: /var/www/trex-node
     ports:
       - "9944:9944"
     environment:
-      - CARGO_HOME=/var/www/capsule-node/.cargo
+      - CARGO_HOME=/var/www/trex-node/.cargo
     volumes:
-      - .:/var/www/capsule-node
+      - .:/var/www/trex-node
       - type: bind
         source: ./.local
         target: /root/.local
-    command: bash -c "cargo build --release && ./target/release/capsule-node --dev --ws-external"
+    command: bash -c "cargo build --release && ./target/release/trex-node --dev --ws-external"

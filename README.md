@@ -1,4 +1,4 @@
-# Capsule - Decentralized Timed Release Encryption for Web3
+# Trex - Decentralized Timed Release Encryption for Web3
 
 A FRAME-based [Substrate](https://www.substrate.io/) node for timed-release encryption for Web3.
 
@@ -35,7 +35,7 @@ cargo build --release
 
 Use below shell script as a reference to generate custom chain-spec json files:
 ```sh
-./target/release/capsule-node build-spec --disable-default-bootnode --chain dev > config.json
+./target/release/trex-node build-spec --disable-default-bootnode --chain dev > config.json
 ```
 
 ### Embedded Docs
@@ -44,7 +44,7 @@ Once the project has been built, the following command can be used to explore al
 subcommands:
 
 ```sh
-./target/release/capsule-node -h
+./target/release/trex-node -h
 ```
 
 ## Run
@@ -58,19 +58,19 @@ node.
 This command will start the single-node development chain with non-persistent state:
 
 ```bash
-./target/release/capsule-node --dev
+./target/release/trex-node --dev
 ```
 
 Purge the development chain's state:
 
 ```bash
-./target/release/capsule-node purge-chain --dev
+./target/release/trex-node purge-chain --dev
 ```
 
 Start the development chain with detailed logging:
 
 ```bash
-RUST_BACKTRACE=1 ./target/release/capsule-node -ldebug --dev
+RUST_BACKTRACE=1 ./target/release/trex-node -ldebug --dev
 ```
 
 > Development chain means that the state of our chain will be in a tmp folder while the nodes are
@@ -92,7 +92,7 @@ is ran. The following commands shows how to use a newly created folder as our db
 $ mkdir my-chain-state
 
 // Use of that folder to store the chain state
-$ ./target/release/capsule-node --dev --base-path ./my-chain-state/
+$ ./target/release/trex-node --dev --base-path ./my-chain-state/
 
 // Check the folder structure created inside the base path after running the chain
 $ ls ./my-chain-state
@@ -155,7 +155,7 @@ After the node has been [built](#build), refer to the embedded documentation to 
 capabilities and configuration parameters that it exposes:
 
 ```shell
-./target/release/capsule-node --help
+./target/release/trex-node --help
 ```
 
 ### Runtime
@@ -221,10 +221,10 @@ by appending your own. A few useful ones are as follow.
 
 ```bash
 # Run Substrate node without re-compiling
-./scripts/docker_run.sh ./target/release/capsule-node --dev --ws-external
+./scripts/docker_run.sh ./target/release/trex-node --dev --ws-external
 
 # Purge the local dev chain
-./scripts/docker_run.sh ./target/release/capsule-node purge-chain --dev
+./scripts/docker_run.sh ./target/release/trex-node purge-chain --dev
 
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check

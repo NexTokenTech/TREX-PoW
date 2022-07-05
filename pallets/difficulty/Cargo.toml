@@ -1,7 +1,7 @@
 [package]
 name = "pallet-difficulty"
 version = "0.1.0"
-description = "FRAME pallet for Capsule runtime difficulty adjustments."
+description = "FRAME pallet for Trex runtime difficulty adjustments."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io/"
 edition = "2021"

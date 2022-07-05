@@ -1,14 +1,14 @@
 {
-  "name": "Capsule AWS testnet 2022",
+  "name": "Trex AWS testnet 2022",
   "id": "testnet2022",
   "chainType": "Live",
   "bootNodes": [],
   "telemetryEndpoints": null,
-  "protocolId": "capsuledev",
+  "protocolId": "trexdev",
   "properties": {
     "ss58Format": 16,
     "tokenDecimals": 12,
-    "tokenSymbol": "CPSD"
+    "tokenSymbol": "TD"
   },
   "consensusEngine": null,
   "codeSubstitutes": {},

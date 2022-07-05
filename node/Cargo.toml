@@ -1,7 +1,7 @@
 [package]
-name = "capsule-node"
+name = "trex-node"
 version = "4.0.0-dev"
-description = "A Capsule PoW node for decentralized timed release encryption."
+description = "A Trex PoW node for decentralized timed release encryption."
 authors = ["team@capsule.ink"]
 homepage = "https://capsule.ink/"
 edition = "2021"
@@ -14,7 +14,7 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "capsule-node"
+name = "trex-node"
 
 [dependencies]
 futures = '0.3.4'
@@ -60,9 +60,9 @@ frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/parityte
 frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 
 # Local Dependencies
-capsule-pow = {path = '../consensus/capsule-pow'}
-capsule-runtime = { path = "../runtime" }
-# custom RPC call Runtime API infered capsule packages
+trex-pow = {path = '../consensus/trex-pow'}
+trex-runtime = { path = "../runtime" }
+# custom RPC call Runtime API infered trex packages
 pallet-storage-rpc = { path = "../pallets/storage/rpc" }
 pallet-storage-runtime-api = { path = "../pallets/storage/runtime-api" }
 # custom inherent package
@@ -78,5 +78,5 @@ substrate-build-script-utils = { version = "3.0.0", git = "https://github.com/pa
 [features]
 default = []
 runtime-benchmarks = [
-	"capsule-runtime/runtime-benchmarks",
+	"trex-runtime/runtime-benchmarks",
 ]

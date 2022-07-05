@@ -8,7 +8,7 @@ use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Capsule PoW Node".into()
+		"Trex PoW Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -42,7 +42,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&capsule_runtime::VERSION
+		&trex_runtime::VERSION
 	}
 }
 

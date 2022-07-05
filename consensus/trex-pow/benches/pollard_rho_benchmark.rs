@@ -1,4 +1,4 @@
-use capsule_pow::{
+use trex_pow::{
 	generic::Hash, pollard_rho, utils::bigint_u256, Compute as Blake3Compute, SolutionVerifier,
 };
 use codec::{Decode, Encode};

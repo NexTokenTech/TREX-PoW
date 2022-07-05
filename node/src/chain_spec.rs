@@ -1,4 +1,4 @@
-use capsule_runtime::{
+use trex_runtime::{
 	genesis::{account_id_from_seed, dev_genesis, testnet_genesis},
 	GenesisConfig, WASM_BINARY,
 };
@@ -21,7 +21,7 @@ pub fn dev_config() -> Result<ChainSpec, String> {
 		move || dev_genesis(wasm_binary),
 		vec![],
 		None,
-		Some("capsuledev"),
+		Some("trexdev"),
 		None,
 		Some(
 			json!({
@@ -66,7 +66,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		},
 		vec![],
 		None,
-		Some("capsulelocal"),
+		Some("trexlocal"),
 		None,
 		Some(
 			json!({
@@ -84,5 +84,5 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 
 pub fn cloud_testnet_config() -> ChainSpec {
 	ChainSpec::from_json_bytes(&include_bytes!("../../res/testnet2022/config.json")[..])
-		.expect("Capsule testnet2022 config included is valid")
+		.expect("Trex testnet2022 config included is valid")
 }

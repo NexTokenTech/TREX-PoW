@@ -625,116 +625,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "capsule-node"
-version = "4.0.0-dev"
-dependencies = [
- "capsule-pow",
- "capsule-runtime",
- "clap 3.2.8",
- "cp-constants",
- "cp-inherent",
- "elgamal_capsule",
- "frame-benchmarking",
- "frame-benchmarking-cli",
- "futures 0.3.21",
- "jsonrpsee",
- "log",
- "pallet-storage-rpc",
- "pallet-storage-runtime-api",
- "pallet-transaction-payment-rpc",
- "rand 0.7.3",
- "sc-basic-authorship",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-pow",
- "sc-executor",
- "sc-keystore",
- "sc-network",
- "sc-rpc",
- "sc-rpc-api",
- "sc-service",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
- "serde_json",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus",
- "sp-core",
- "sp-inherents",
- "sp-keystore",
- "sp-runtime",
- "sp-timestamp",
- "sp-transaction-pool",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
-]
-
-[[package]]
-name = "capsule-pow"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "cp-constants",
- "criterion",
- "elgamal_capsule",
- "parity-scale-codec",
- "rand 0.8.5",
- "rug",
- "sc-client-api",
- "sc-consensus-pow",
- "scale-info",
- "sha2 0.10.2",
- "sp-api",
- "sp-application-crypto",
- "sp-consensus-pow",
- "sp-core",
- "sp-runtime",
-]
-
-[[package]]
-name = "capsule-runtime"
-version = "4.0.0-dev"
-dependencies = [
- "cp-constants",
- "frame-benchmarking",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "frame-system-rpc-runtime-api",
- "hex-literal",
- "pallet-balances",
- "pallet-capsule",
- "pallet-difficulty",
- "pallet-randomness-collective-flip",
- "pallet-rewards",
- "pallet-storage",
- "pallet-storage-runtime-api",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
- "parity-scale-codec",
- "scale-info",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-pow",
- "sp-core",
- "sp-inherents",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std",
- "sp-transaction-pool",
- "sp-version",
- "substrate-wasm-builder",
-]
-
-[[package]]
 name = "cargo-platform"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4256,23 +4146,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-capsule"
-version = "4.0.0-dev"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "serde_json",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-difficulty"
 version = "0.1.0"
 dependencies = [
@@ -4450,6 +4323,23 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-trex"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
@@ -7863,6 +7753,116 @@ dependencies = [
  "tracing-core",
  "tracing-log",
  "tracing-serde",
+]
+
+[[package]]
+name = "trex-node"
+version = "4.0.0-dev"
+dependencies = [
+ "clap 3.2.8",
+ "cp-constants",
+ "cp-inherent",
+ "elgamal_capsule",
+ "frame-benchmarking",
+ "frame-benchmarking-cli",
+ "futures 0.3.21",
+ "jsonrpsee",
+ "log",
+ "pallet-storage-rpc",
+ "pallet-storage-runtime-api",
+ "pallet-transaction-payment-rpc",
+ "rand 0.7.3",
+ "sc-basic-authorship",
+ "sc-cli",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-consensus-pow",
+ "sc-executor",
+ "sc-keystore",
+ "sc-network",
+ "sc-rpc",
+ "sc-rpc-api",
+ "sc-service",
+ "sc-telemetry",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "serde_json",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-core",
+ "sp-inherents",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-timestamp",
+ "sp-transaction-pool",
+ "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
+ "trex-pow",
+ "trex-runtime",
+]
+
+[[package]]
+name = "trex-pow"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "cp-constants",
+ "criterion",
+ "elgamal_capsule",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "rug",
+ "sc-client-api",
+ "sc-consensus-pow",
+ "scale-info",
+ "sha2 0.10.2",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-consensus-pow",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "trex-runtime"
+version = "4.0.0-dev"
+dependencies = [
+ "cp-constants",
+ "frame-benchmarking",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "frame-system-rpc-runtime-api",
+ "hex-literal",
+ "pallet-balances",
+ "pallet-difficulty",
+ "pallet-randomness-collective-flip",
+ "pallet-rewards",
+ "pallet-storage",
+ "pallet-storage-runtime-api",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-treasury",
+ "pallet-trex",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-pow",
+ "sp-core",
+ "sp-inherents",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-version",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
