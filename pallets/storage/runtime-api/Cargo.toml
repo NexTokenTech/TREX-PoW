@@ -1,9 +1,11 @@
 [package]
 name = "pallet-storage-runtime-api"
 version = "4.0.0-dev"
-authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+authors = ["NexToken Technologies - Trex Dev Team <team@trex.ink>"]
+homepage = "https://trex.ink"
 edition = "2021"
-license = "GPL-3.0-or-later"
+license = "Apache-2.0"
+repository = "https://github.com/NexTokenTech/Trex"
 
 [dependencies]
 sp-api = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24"}
