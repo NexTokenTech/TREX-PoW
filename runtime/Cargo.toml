@@ -1,7 +1,7 @@
 [package]
-name = "capsule-runtime"
+name = "trex-runtime"
 version = "4.0.0-dev"
-description = "A fresh FRAME-based Substrate runtime for Capsule nodes."
+description = "A fresh FRAME-based Substrate runtime for Trex nodes."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io/"
 edition = "2021"
@@ -35,7 +35,7 @@ sp-std = { version = "4.0.0", default-features = false, git = "https://github.co
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 sp-version = { version = "5.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 
-# Used for the capsule-node's RPCs
+# Used for the trex-node's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 
@@ -45,13 +45,13 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 hex-literal = { version = "0.3.4", optional = true }
 
 # Local Dependencies
-cp-constants = { path = "../primitives/constants"}
+trex-constants = { path = "../primitives/constants"}
 pallet-difficulty = { version = "0.1.0", default-features = false, path = "../pallets/difficulty" }
 
-# Local Pallet for Capsule Storage
+# Local Pallet for Trex Storage
 pallet-storage = { default-features = false, path = "../pallets/storage" }
 pallet-storage-runtime-api = { default-features = false, path = "../pallets/storage/runtime-api" }
-pallet-capsule = { default-features = false, path = "../pallets/capsule" }
+pallet-trex = { default-features = false, path = "../pallets/trex" }
 pallet-rewards = { default-features = false,path = "../pallets/rewards" }
 #getrandom = { version = "0.2", features = ["js"] }
 sp-consensus-pow = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.24" }
@@ -88,7 +88,7 @@ std = [
 	"sp-version/std",
 	"pallet-storage/std",
 	"pallet-storage-runtime-api/std",
-	"pallet-capsule/std",
+	"pallet-trex/std",
 	"pallet-rewards/std",
 	"sp-consensus-pow/std"
 ]
@@ -102,5 +102,5 @@ runtime-benchmarks = [
 	"pallet-difficulty/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"pallet-capsule/runtime-benchmarks"
+	"pallet-trex/runtime-benchmarks"
 ]

@@ -1,5 +1,5 @@
 [package]
-name = "cp-inherent"
+name = "trex-inherent"
 version = "0.10.0-dev"
 authors = ["Parity Technologies <admin@parity.io>"]
 description = "Primitives for inherent consensus"

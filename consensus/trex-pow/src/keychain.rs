@@ -1,4 +1,4 @@
-use cp_constants::{MAX_DIFFICULTY, MIN_DIFFICULTY};
+use trex_constants::{MAX_DIFFICULTY, MIN_DIFFICULTY};
 use elgamal_capsule::{elgamal::PublicKey, generate_pub_key, utils::u256_bigint};
 use rug::rand::RandState;
 use sp_core::U256;

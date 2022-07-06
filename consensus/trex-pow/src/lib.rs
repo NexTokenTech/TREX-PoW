@@ -5,7 +5,7 @@ pub mod utils;
 
 use blake3;
 use codec::{Decode, Encode};
-use cp_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
+use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
 use elgamal_capsule::{
 	elgamal::{PrivateKey, PublicKey, RawKey, RawPublicKey},
 	Seed,
@@ -293,10 +293,10 @@ impl SolutionVerifier {
 /// A minimal PoW algorithm that uses pollard rho method.
 /// Difficulty is fixed at 48 bit long uint.
 #[derive(Clone)]
-pub struct MinimalCapsuleAlgorithm;
+pub struct MinimalTrexAlgorithm;
 
 // Here we implement the minimal Capsule Pow Algorithm trait
-impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
+impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTrexAlgorithm {
 	type Difficulty = Difficulty;
 
 	fn difficulty(&self, _parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
@@ -337,26 +337,26 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalCapsuleAlgorithm {
 
 /// A complete PoW Algorithm that uses Sha3 hashing.
 /// Needs a reference to the client so it can grab the difficulty from the runtime.
-pub struct CapsuleAlgorithm<C> {
+pub struct TrexAlgorithm<C> {
 	client: Arc<C>,
 }
 
-impl<C> CapsuleAlgorithm<C> {
+impl<C> TrexAlgorithm<C> {
 	pub fn new(client: Arc<C>) -> Self {
 		Self { client }
 	}
 }
 
 // Manually implement clone. Deriving doesn't work because
-// it'll derive impl<C: Clone> Clone for CapsuleAlgorithm<C>. But C in practice isn't Clone.
-impl<C> Clone for CapsuleAlgorithm<C> {
+// it'll derive impl<C: Clone> Clone for TrexAlgorithm<C>. But C in practice isn't Clone.
+impl<C> Clone for TrexAlgorithm<C> {
 	fn clone(&self) -> Self {
 		Self::new(self.client.clone())
 	}
 }
 
 // Here we implement the general PowAlgorithm trait for our concrete Sha3Algorithm
-impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for CapsuleAlgorithm<C>
+impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for TrexAlgorithm<C>
 where
 	C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
 	C::Api: DifficultyApi<B, Difficulty>,

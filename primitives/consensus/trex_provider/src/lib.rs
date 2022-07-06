@@ -13,14 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Inherents for Capsule
+//! Inherents for trex
 
 use sp_inherents::{Error, InherentData, InherentIdentifier};
 
 use sp_std::result::Result;
 
-/// The Capsule inherent identifier.
-pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"capsule0";
+/// The trex inherent identifier.
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"trexdev0";
 
 /// The type of the BABE inherent.
 pub type InherentType = String;

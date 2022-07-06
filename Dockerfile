@@ -17,17 +17,17 @@
 # ===== START FIRST STAGE ======
 #FROM paritytech/ci-linux:974ba3ac-20201006 as builder
 #LABEL maintainer "kaisuki@qq.com"
-#LABEL description="capsule builder."
+#LABEL description="trex builder."
 
 # ===== START FIRST STAGE ======
 FROM phusion/baseimage:jammy-1.0.0 as builder
 LABEL maintainer="team@capsule.ink"
-LABEL description="capsule builder."
+LABEL description="trex builder."
 
 ARG PROFILE=release
 ARG STABLE=nightly
 WORKDIR /rustbuilder
-COPY . /rustbuilder/capsule
+COPY . /rustbuilder/trex
 
 # PREPARE OPERATING SYSTEM & BUILDING ENVIRONMENT
 RUN apt-get update && \
@@ -44,30 +44,30 @@ RUN rustup update $STABLE
 
 # BUILD RUNTIME AND BINARY
 RUN rustup target add wasm32-unknown-unknown --toolchain $STABLE
-RUN cd /rustbuilder/capsule && RUSTC_BOOTSTRAP=1 cargo +nightly build --$PROFILE --locked
+RUN cd /rustbuilder/trex && RUSTC_BOOTSTRAP=1 cargo +nightly build --$PROFILE --locked
 # ===== END FIRST STAGE ======
 
 # ===== START SECOND STAGE ======
 FROM phusion/baseimage:jammy-1.0.0
 LABEL maintainer="team@capsule.ink"
-LABEL description="capsule binary."
+LABEL description="trex binary."
 ARG PROFILE=release
-COPY --from=builder /rustbuilder/capsule/target/$PROFILE/capsule-node /usr/local/bin
+COPY --from=builder /rustbuilder/trex/target/$PROFILE/trex-node /usr/local/bin
 
 # REMOVE & CLEANUP
 RUN mv /usr/share/ca* /tmp && \
 	rm -rf /usr/share/*  && \
 	mv /tmp/ca-certificates /usr/share/ && \
 	rm -rf /usr/lib/python* && \
-	mkdir -p /root/.local/share/capsule && \
-	ln -s /root/.local/share/capsule /data
+	mkdir -p /root/.local/share/trex && \
+	ln -s /root/.local/share/trex /data
 RUN	rm -rf /usr/bin /usr/sbin
 
 # FINAL PREPARATIONS
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
-#CMD ["/usr/local/bin/capsule"]
+#CMD ["/usr/local/bin/trex"]
 WORKDIR /usr/local/bin
-ENTRYPOINT ["capsule-node"]
-#CMD ["--chain=capsule"]
+ENTRYPOINT ["trex-node"]
+#CMD ["--chain=trex"]
 #===== END SECOND STAGE ======

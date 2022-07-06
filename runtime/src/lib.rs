@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg(feature = "std")]
 pub mod genesis;
 
-use cp_constants::Difficulty;
+use trex_constants::Difficulty;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
-use cp_constants::BLOCK_TIME_SEC; //SLOT_DURATION
+use trex_constants::BLOCK_TIME_SEC; //SLOT_DURATION
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{KeyOwnerProofSystem, Randomness, StorageInfo, ConstU8},
@@ -86,9 +86,9 @@ pub mod opaque {
 //   https://docs.substrate.io/v3/runtime/upgrades#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("Capsule"),
-	impl_name: create_runtime_str!("Capsule"),
-	authoring_version: 1,
+	spec_name: create_runtime_str!("Trex"),
+	impl_name: create_runtime_str!("Trex"),
+	authoring_version: 2,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
@@ -243,9 +243,9 @@ impl pallet_storage::Config for Runtime {
 	type Event = Event;
 }
 
-impl pallet_capsule::Config for Runtime {
+impl pallet_trex::Config for Runtime {
 	type Event = Event;
-	type CapsuleWeight = pallet_capsule::weights::SubstrateWeight<Runtime>;
+	type TrexWeight = pallet_trex::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -264,7 +264,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-difficulty in the runtime.
 		DifficultyModule: pallet_difficulty,
 		StorageModule: pallet_storage,
-		CapsuleModule: pallet_capsule,
+		TrexModule: pallet_trex,
 		Rewards: pallet_rewards,
 	}
 );
@@ -429,7 +429,7 @@ impl_runtime_apis! {
 			list_benchmark!(list, extra, pallet_balances, Balances);
 			list_benchmark!(list, extra, pallet_timestamp, Timestamp);
 			list_benchmark!(list, extra, pallet_difficulty, DifficultyModule);
-			list_benchmark!(list, extra, pallet_capsule, CapsuleModule);
+			list_benchmark!(list, extra, pallet_trex, TrexModule);
 
 			let storage_info = AllPalletsWithSystem::storage_info();
 
@@ -468,7 +468,7 @@ impl_runtime_apis! {
 			add_benchmark!(params, batches, pallet_balances, Balances);
 			add_benchmark!(params, batches, pallet_timestamp, Timestamp);
 			add_benchmark!(params, batches, pallet_difficulty, DifficultyModule);
-			add_benchmark!(params, batches, pallet_capsule, CapsuleModule);
+			add_benchmark!(params, batches, pallet_trex, TrexModule);
 
 			Ok(batches)
 		}

@@ -1,8 +1,8 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use capsule_pow::{genesis, CapsuleAlgorithm, Compute, Seal};
-use capsule_runtime::{self, opaque::Block, RuntimeApi};
-use cp_constants::{
+use trex_pow::{genesis, TrexAlgorithm, Compute, Seal};
+use trex_runtime::{self, opaque::Block, RuntimeApi};
+use trex_constants::{
 	MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT, INIT_DIFFICULTY,
 };
 use futures::{executor::block_on};
@@ -36,11 +36,11 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	type ExtendHostFunctions = ();
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		capsule_runtime::api::dispatch(method, data)
+		trex_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		capsule_runtime::native_version()
+		trex_runtime::native_version()
 	}
 }
 
@@ -48,26 +48,26 @@ pub fn decode_author(
 	author: Option<&str>,
 	keystore: SyncCryptoStorePtr,
 	keystore_path: Option<PathBuf>,
-) -> Result<capsule_pow::app::Public, String> {
+) -> Result<trex_pow::app::Public, String> {
 	if let Some(author) = author {
 		if author.starts_with("0x") {
-			Ok(capsule_pow::app::Public::unchecked_from(
+			Ok(trex_pow::app::Public::unchecked_from(
 				H256::from_str(&author[2..]).map_err(|_| "Invalid author account".to_string())?,
 			)
 			.into())
 		} else {
-			let (address, _) = capsule_pow::app::Public::from_ss58check_with_version(author)
+			let (address, _) = trex_pow::app::Public::from_ss58check_with_version(author)
 				.map_err(|_| "Invalid author address".to_string())?;
 			Ok(address)
 		}
 	} else {
 		dbg!("The node is configured for mining, but no author key is provided.");
 
-		let (pair, phrase, _) = capsule_pow::app::Pair::generate_with_phrase(None);
+		let (pair, phrase, _) = trex_pow::app::Pair::generate_with_phrase(None);
 
 		SyncCryptoStore::insert_unknown(
 			&*keystore.as_ref(),
-			capsule_pow::app::ID,
+			trex_pow::app::ID,
 			&phrase,
 			pair.public().as_ref(),
 		)
@@ -109,7 +109,7 @@ pub fn new_partial(
 				Arc<FullClient>,
 				FullClient,
 				FullSelectChain,
-				CapsuleAlgorithm<FullClient>,
+				TrexAlgorithm<FullClient>,
 				impl sp_consensus::CanAuthorWith<Block>,
 				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
 			>,
@@ -161,7 +161,7 @@ pub fn new_partial(
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-	let algorithm = capsule_pow::CapsuleAlgorithm::new(client.clone());
+	let algorithm = trex_pow::TrexAlgorithm::new(client.clone());
 
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
@@ -171,7 +171,7 @@ pub fn new_partial(
 		select_chain.clone(),
 		|_parent, ()| async {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			// let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
+			// let trex_data = trex_inherent::InherentDataProvider::from_default_value();
 			Ok(timestamp)
 		},
 		can_author_with,
@@ -253,7 +253,7 @@ pub fn new_full(
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 		if mining {
-			let algorithm = capsule_pow::CapsuleAlgorithm::new(client.clone());
+			let algorithm = trex_pow::TrexAlgorithm::new(client.clone());
 			// Parameter details:
 			//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
 			// Also refer to kulupu config:
@@ -271,7 +271,7 @@ pub fn new_full(
 				// For block production we want to provide our inherent data provider
 				|_parent, ()| async {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-					// let capsule_data = cp_inherent::InherentDataProvider::from_default_value();
+					// let trex_data = trex_inherent::InherentDataProvider::from_default_value();
 					Ok(timestamp)
 				},
 				// time to wait for a new block before starting to mine a new one
