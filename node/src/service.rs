@@ -23,6 +23,7 @@ use std::{sync::Arc, thread, time::Duration};
 use log::warn;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
+use sp_core::hexdisplay::HexDisplay;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -238,6 +239,16 @@ pub fn new_full(
 	let prometheus_registry = config.prometheus_registry().cloned();
 
 	let keystore_path = config.keystore.path().map(|p| p.to_owned());
+
+	// Private and public keys configuration.
+	let local_identity = config.network.node_key.clone().into_keypair()?;
+	let local_public = local_identity.public();
+	let local_peer_id = local_public.clone().to_peer_id();
+	let local_peer_vec = local_peer_id.to_bytes();
+	let hex_value = HexDisplay::from(&local_peer_vec).to_string();
+	// println!("pubkey hex = {:?}", &hex_value);
+	let z = isize::from_str_radix(&hex_value, 16);
+	println!("{:?}", z);
 
 	if is_authority {
 		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
