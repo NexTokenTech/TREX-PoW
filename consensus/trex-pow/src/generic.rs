@@ -1,5 +1,5 @@
 use codec::{Decode, Encode};
-use elgamal_capsule::elgamal::PublicKey;
+use elgamal_trex::elgamal::PublicKey;
 
 #[derive(Debug, Clone)]
 pub struct MappingError;

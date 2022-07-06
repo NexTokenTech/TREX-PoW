@@ -4,7 +4,7 @@ use trex_pow::{
 use codec::{Decode, Encode};
 use trex_constants::Difficulty;
 use criterion::{criterion_group, criterion_main, Criterion};
-use elgamal_capsule::elgamal::PublicKey;
+use elgamal_trex::elgamal::PublicKey;
 use rand::{self, Rng};
 use rug::{integer::Order, Integer};
 use sha2::{Digest, Sha256};
