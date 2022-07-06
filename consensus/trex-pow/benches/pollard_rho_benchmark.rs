@@ -2,7 +2,7 @@ use trex_pow::{
 	generic::Hash, pollard_rho, utils::bigint_u256, Compute as Blake3Compute, SolutionVerifier,
 };
 use codec::{Decode, Encode};
-use cp_constants::Difficulty;
+use trex_constants::Difficulty;
 use criterion::{criterion_group, criterion_main, Criterion};
 use elgamal_capsule::elgamal::PublicKey;
 use rand::{self, Rng};

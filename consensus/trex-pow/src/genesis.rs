@@ -1,5 +1,5 @@
 use crate::{keychain::RawKeySeeds, Seal, Solution};
-use cp_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY};
+use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY};
 use elgamal_capsule::RawPublicKey;
 use sp_core::U256;
 

@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 #[cfg(feature = "std")]
 pub mod genesis;
 
-use cp_constants::Difficulty;
+use trex_constants::Difficulty;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -25,7 +25,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
-use cp_constants::BLOCK_TIME_SEC; //SLOT_DURATION
+use trex_constants::BLOCK_TIME_SEC; //SLOT_DURATION
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{KeyOwnerProofSystem, Randomness, StorageInfo, ConstU8},

@@ -45,7 +45,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 hex-literal = { version = "0.3.4", optional = true }
 
 # Local Dependencies
-cp-constants = { path = "../primitives/constants"}
+trex-constants = { path = "../primitives/constants"}
 pallet-difficulty = { version = "0.1.0", default-features = false, path = "../pallets/difficulty" }
 
 # Local Pallet for Trex Storage

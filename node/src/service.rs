@@ -2,7 +2,7 @@
 
 use trex_pow::{genesis, TrexAlgorithm, Compute, Seal};
 use trex_runtime::{self, opaque::Block, RuntimeApi};
-use cp_constants::{
+use trex_constants::{
 	MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT, INIT_DIFFICULTY,
 };
 use futures::{executor::block_on};
@@ -171,7 +171,7 @@ pub fn new_partial(
 		select_chain.clone(),
 		|_parent, ()| async {
 			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			// let trex_data = cp_inherent::InherentDataProvider::from_default_value();
+			// let trex_data = trex_inherent::InherentDataProvider::from_default_value();
 			Ok(timestamp)
 		},
 		can_author_with,
@@ -271,7 +271,7 @@ pub fn new_full(
 				// For block production we want to provide our inherent data provider
 				|_parent, ()| async {
 					let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-					// let trex_data = cp_inherent::InherentDataProvider::from_default_value();
+					// let trex_data = trex_inherent::InherentDataProvider::from_default_value();
 					Ok(timestamp)
 				},
 				// time to wait for a new block before starting to mine a new one

@@ -873,25 +873,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cp-constants"
-version = "0.1.0"
-
-[[package]]
-name = "cp-inherent"
-version = "0.10.0-dev"
-dependencies = [
- "async-trait",
- "futures-timer",
- "log",
- "parity-scale-codec",
- "sp-api",
- "sp-inherents",
- "sp-runtime",
- "sp-std",
- "thiserror",
-]
-
-[[package]]
 name = "cpp_demangle"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4149,7 +4130,6 @@ dependencies = [
 name = "pallet-difficulty"
 version = "0.1.0"
 dependencies = [
- "cp-constants",
  "fast-math",
  "frame-benchmarking",
  "frame-support",
@@ -4163,6 +4143,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
+ "trex-constants",
 ]
 
 [[package]]
@@ -4183,7 +4164,6 @@ dependencies = [
 name = "pallet-rewards"
 version = "0.1.0"
 dependencies = [
- "cp-constants",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -4198,6 +4178,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "trex-constants",
 ]
 
 [[package]]
@@ -7756,12 +7737,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "trex-constants"
+version = "0.1.0"
+
+[[package]]
+name = "trex-inherent"
+version = "0.10.0-dev"
+dependencies = [
+ "async-trait",
+ "futures-timer",
+ "log",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-inherents",
+ "sp-runtime",
+ "sp-std",
+ "thiserror",
+]
+
+[[package]]
 name = "trex-node"
 version = "4.0.0-dev"
 dependencies = [
  "clap 3.2.8",
- "cp-constants",
- "cp-inherent",
  "elgamal_capsule",
  "frame-benchmarking",
  "frame-benchmarking-cli",
@@ -7799,6 +7797,8 @@ dependencies = [
  "sp-transaction-pool",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
+ "trex-constants",
+ "trex-inherent",
  "trex-pow",
  "trex-runtime",
 ]
@@ -7808,7 +7808,6 @@ name = "trex-pow"
 version = "0.1.0"
 dependencies = [
  "blake3",
- "cp-constants",
  "criterion",
  "elgamal_capsule",
  "parity-scale-codec",
@@ -7823,13 +7822,13 @@ dependencies = [
  "sp-consensus-pow",
  "sp-core",
  "sp-runtime",
+ "trex-constants",
 ]
 
 [[package]]
 name = "trex-runtime"
 version = "4.0.0-dev"
 dependencies = [
- "cp-constants",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -7863,6 +7862,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "trex-constants",
 ]
 
 [[package]]

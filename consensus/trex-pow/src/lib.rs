@@ -5,7 +5,7 @@ pub mod utils;
 
 use blake3;
 use codec::{Decode, Encode};
-use cp_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
+use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
 use elgamal_capsule::{
 	elgamal::{PrivateKey, PublicKey, RawKey, RawPublicKey},
 	Seed,

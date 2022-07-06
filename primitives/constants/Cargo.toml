@@ -1,5 +1,5 @@
 [package]
-name = "cp-constants"
+name = "trex-constants"
 version = "0.1.0"
 edition = "2021"
 authors = ["Fanghao Yang <yangfanghao@gmail.com>"]

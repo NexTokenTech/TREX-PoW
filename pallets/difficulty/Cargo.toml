@@ -22,7 +22,7 @@ frame-system = { default-features = false, version = "4.0.0-dev", git = "https:/
 frame-benchmarking = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24", optional = true }
 sp-timestamp = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 pallet-timestamp = { default-features = false, version = "4.0.0-dev",  git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
-cp-constants = { path = "../../primitives/constants"}
+trex-constants = { path = "../../primitives/constants"}
 sp-runtime = { default-features = false, version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 sp-std = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 fast-math = "0.1.1"

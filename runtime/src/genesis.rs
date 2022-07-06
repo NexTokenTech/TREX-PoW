@@ -3,7 +3,7 @@ use super::{
 	SudoConfig, SystemConfig, TransactionPaymentConfig,
 };
 // use core::default::Default as cDefault;
-use cp_constants::{DOLLARS, INIT_DIFFICULTY, REWARD_VALUE};
+use trex_constants::{DOLLARS, INIT_DIFFICULTY, REWARD_VALUE};
 use sp_core::{sr25519, Pair};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
