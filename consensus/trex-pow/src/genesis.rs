@@ -1,6 +1,6 @@
 use crate::{keychain::RawKeySeeds, Seal, Solution};
 use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY};
-use elgamal_capsule::RawPublicKey;
+use elgamal_trex::RawPublicKey;
 use sp_core::U256;
 
 pub fn genesis_seal(difficulty: Difficulty) -> Seal {

@@ -24,7 +24,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/NexTokenTech/Capsule/issues".into()
+		"https://github.com/NexTokenTech/Trex/issues".into()
 	}
 
 	fn copyright_start_year() -> i32 {

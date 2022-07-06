@@ -6,7 +6,7 @@ pub mod utils;
 use blake3;
 use codec::{Decode, Encode};
 use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
-use elgamal_capsule::{
+use elgamal_trex::{
 	elgamal::{PrivateKey, PublicKey, RawKey, RawPublicKey},
 	Seed,
 };
@@ -295,7 +295,7 @@ impl SolutionVerifier {
 #[derive(Clone)]
 pub struct MinimalTrexAlgorithm;
 
-// Here we implement the minimal Capsule Pow Algorithm trait
+// Here we implement the minimal Trex Pow Algorithm trait
 impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTrexAlgorithm {
 	type Difficulty = Difficulty;
 
@@ -438,7 +438,7 @@ pub fn pollard_rho<C: Clone + Hash<Integer, U256>>(
 
 #[cfg(test)]
 mod tests {
-	use elgamal_capsule::KeyGenerator;
+	use elgamal_trex::KeyGenerator;
 	use super::*;
 	use rug::Integer;
 
