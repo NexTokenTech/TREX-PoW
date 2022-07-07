@@ -23,7 +23,7 @@ use std::{sync::Arc, thread, time::Duration};
 use log::warn;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
-use sp_core::hexdisplay::HexDisplay;
+use sc_network::config::NodeKeyConfig;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -198,6 +198,24 @@ pub fn new_partial(
 	})
 }
 
+pub fn generate_mining_key(
+	node_key: NodeKeyConfig,
+) -> Result<U256,ServiceError>{
+	let local_identity = node_key.into_keypair()?;
+	let local_public = local_identity.public();
+	let local_peer_id = local_public.clone().to_peer_id();
+	let mut local_peer_vec = local_peer_id.to_bytes();
+
+	let mut number = 0;
+	let maxnumber = local_peer_vec.len()/2;
+	while number < maxnumber {
+		local_peer_vec.pop();
+		number += 1;
+	}
+	let mining_key = U256::from_little_endian(&local_peer_vec);
+	Ok(mining_key)
+}
+
 /// Builds a new service for a full client.
 pub fn new_full(
 	config: Configuration,
@@ -240,16 +258,7 @@ pub fn new_full(
 
 	let keystore_path = config.keystore.path().map(|p| p.to_owned());
 
-	// Private and public keys configuration.
-	let local_identity = config.network.node_key.clone().into_keypair()?;
-	let local_public = local_identity.public();
-	let local_peer_id = local_public.clone().to_peer_id();
-	let local_peer_vec = local_peer_id.to_bytes();
-	let hex_value = HexDisplay::from(&local_peer_vec).to_string();
-	// println!("pubkey hex = {:?}", &hex_value);
-	let z = isize::from_str_radix(&hex_value, 16);
-	println!("{:?}", z);
-
+	let node_key = config.network.node_key.clone();
 	if is_authority {
 		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
 		let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -326,7 +335,8 @@ pub fn new_full(
 					None
 				};
 				// WARNING: do not use 0 as initial seed.
-				let mut mining_seed = U256::from(1i32);
+				// let mut mining_seed = U256::from(1i32);
+				let mut mining_seed = generate_mining_key(node_key).unwrap_or(U256::from(1i32));
 				loop {
 					let worker = Arc::clone(&worker);
 					let metadata = worker.metadata();
