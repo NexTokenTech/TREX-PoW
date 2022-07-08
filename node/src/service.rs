@@ -20,10 +20,10 @@ use sp_core::{
 use sp_runtime::generic::BlockId;
 use std::{sync::Arc, thread, time::Duration};
 
-use log::{info, warn};
+use log::{warn};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
-use sc_network::config::NodeKeyConfig;
+use crate::mining_seed::generate_mining_seed;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -198,29 +198,6 @@ pub fn new_partial(
 	})
 }
 
-pub fn generate_mining_key(
-	node_key: NodeKeyConfig,
-) -> Result<U256,ServiceError>{
-	let local_identity = node_key.into_keypair()?;
-	let local_public = local_identity.public();
-	let local_peer_id = local_public.clone().to_peer_id();
-	let mut local_peer_vec = local_peer_id.to_bytes();
-
-	let mut number = 0;
-	let maxnumber = local_peer_vec.len()/2;
-	while number < maxnumber {
-		local_peer_vec.pop();
-		number += 1;
-	}
-	let mining_key = U256::from_little_endian(&local_peer_vec);
-	info!(
-			target: "sub-libp2p",
-			"🏷  Local node identity is: {}",
-			local_peer_id.to_base58(),
-		);
-	Ok(mining_key)
-}
-
 /// Builds a new service for a full client.
 pub fn new_full(
 	config: Configuration,
@@ -340,8 +317,7 @@ pub fn new_full(
 					None
 				};
 				// WARNING: do not use 0 as initial seed.
-				// let mut mining_seed = U256::from(1i32);
-				let mut mining_seed = generate_mining_key(node_key).unwrap_or(U256::from(1i32));
+				let mut mining_seed = generate_mining_seed(node_key).unwrap_or(U256::from(1i32));
 				loop {
 					let worker = Arc::clone(&worker);
 					let metadata = worker.metadata();
