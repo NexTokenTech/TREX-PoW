@@ -1,4 +1,4 @@
-# Trex - Decentralized Timed Release Encryption for Web3
+# TREX - Decentralized Timed Release Encryption for Web3
 
 A FRAME-based [Substrate](https://www.substrate.io/) node for timed-release encryption for Web3.
 

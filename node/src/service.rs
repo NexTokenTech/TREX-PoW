@@ -1,6 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use trex_pow::{genesis, TrexAlgorithm, Compute, Seal};
+use trex_pow::{genesis, TREXAlgorithm, Compute, Seal};
 use trex_runtime::{self, opaque::Block, RuntimeApi};
 use trex_constants::{
 	MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT, INIT_DIFFICULTY,
@@ -109,7 +109,7 @@ pub fn new_partial(
 				Arc<FullClient>,
 				FullClient,
 				FullSelectChain,
-				TrexAlgorithm<FullClient>,
+				TREXAlgorithm<FullClient>,
 				impl sp_consensus::CanAuthorWith<Block>,
 				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
 			>,
@@ -161,7 +161,7 @@ pub fn new_partial(
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-	let algorithm = trex_pow::TrexAlgorithm::new(client.clone());
+	let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
 
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
@@ -253,7 +253,7 @@ pub fn new_full(
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 		if mining {
-			let algorithm = trex_pow::TrexAlgorithm::new(client.clone());
+			let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
 			// Parameter details:
 			//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
 			// Also refer to kulupu config:

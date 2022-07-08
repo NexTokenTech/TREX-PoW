@@ -84,5 +84,5 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 
 pub fn cloud_testnet_config() -> ChainSpec {
 	ChainSpec::from_json_bytes(&include_bytes!("../../res/testnet2022/config.json")[..])
-		.expect("Trex testnet2022 config included is valid")
+		.expect("TREX testnet2022 config included is valid")
 }

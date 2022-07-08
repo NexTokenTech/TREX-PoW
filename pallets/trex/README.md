@@ -15,14 +15,14 @@ impl<T: Config> Pallet<T>{
 	/// An example dispatchable that takes a singles value as a parameter, writes the value to
 	/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 	/// #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-	#[pallet::weight(T::TrexWeight::send_trex_data())]
+	#[pallet::weight(T::TREXWeight::send_trex_data())]
 	pub fn send_trex_data(origin: OriginFor<T>, _from: T::AccountId, message: Vec<u8>, release_block_height: u32) -> DispatchResult {
 		let who = ensure_signed(origin)?;
 	
-		//construct InfoData Struct for TrexStorage
+		//construct InfoData Struct for TREXStorage
 		let owner = who.clone();
 		let trex_message = message.clone();
-		let trex_data = TrexData::<T>{
+		let trex_data = TREXData::<T>{
 			release_block_height,
 			message:trex_message,
 			from:owner
@@ -31,10 +31,10 @@ impl<T: Config> Pallet<T>{
 		//encode InfoData instance to vec<u8>
 		let trex_byte_data = trex_data.encode();
 		// Update storage.
-		<TrexStorage<T>>::put(&trex_byte_data);
+		<TREXStorage<T>>::put(&trex_byte_data);
 	
 		// Emit an event.
-		Self::deposit_event(Event::TrexDataSent(who, trex_byte_data));
+		Self::deposit_event(Event::TREXDataSent(who, trex_byte_data));
 		// Return a successful DispatchResultWithPostInfo
 		Ok(())
 	}
@@ -43,7 +43,7 @@ impl<T: Config> Pallet<T>{
 
 The **#[pallet::call]** macro tells that the following implementation contains dispatch calls. The function **send trex data** is a dispatch call to submit a Extrinsic to the blockchain.
 
-The **#[pallet::weight(T::TrexWeight::send_trex_data())]** macro is used to identify the resources a call will be needing. These are called Transactional weights. **Weights** are the mechanism used to manage the time it takes to validate a block. Generally speaking, this comes from limiting the storage **I/O** and **computation**.
+The **#[pallet::weight(T::TREXWeight::send_trex_data())]** macro is used to identify the resources a call will be needing. These are called Transactional weights. **Weights** are the mechanism used to manage the time it takes to validate a block. Generally speaking, this comes from limiting the storage **I/O** and **computation**.
 
 So, the sole purpose of this function is to make changes in the blockchain state and fire an event to let everyone know about the changes by submitting a transaction.
 

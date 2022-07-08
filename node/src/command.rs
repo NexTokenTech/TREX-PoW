@@ -8,7 +8,7 @@ use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Trex PoW Node".into()
+		"TREX PoW Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -24,7 +24,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/NexTokenTech/Trex/issues".into()
+		"https://github.com/NexTokenTech/TREX/issues".into()
 	}
 
 	fn copyright_start_year() -> i32 {

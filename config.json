@@ -1,7 +1,7 @@
 {
-  "name": "TREX AWS testnet 2022",
-  "id": "testnet2022",
-  "chainType": "Live",
+  "name": "Development",
+  "id": "dev",
+  "chainType": "Development",
   "bootNodes": [],
   "telemetryEndpoints": null,
   "protocolId": "trexdev",
