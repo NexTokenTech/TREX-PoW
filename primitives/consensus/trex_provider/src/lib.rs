@@ -25,7 +25,7 @@ pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"trexdev0";
 /// The type of the BABE inherent.
 pub type InherentType = String;
 
-/// Provides the custom value inherent data for Trex.
+/// Provides the custom value inherent data for TREX.
 // TODO: Remove in the future. https://github.com/paritytech/substrate/issues/8029
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {

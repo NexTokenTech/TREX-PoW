@@ -1,4 +1,4 @@
-//! Trex primitive constants and types.
+//! TREX primitive constants and types.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 pub type Difficulty = u128;

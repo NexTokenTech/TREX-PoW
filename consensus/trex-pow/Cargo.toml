@@ -21,7 +21,7 @@ scale-info = { version = "2.1.1", default-features = false, features = ["derive"
 
 # local packages
 trex-constants = { path = "../../primitives/constants"}
-# Trex packages
+# TREX packages
 elgamal_trex = {version = "0.1.3", git = "https://github.com/NexTokenTech/elgamal_trex.git", branch = "master"}
 
 [dev-dependencies]
