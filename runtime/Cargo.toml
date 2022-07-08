@@ -1,7 +1,7 @@
 [package]
 name = "trex-runtime"
 version = "4.0.0-dev"
-description = "A fresh FRAME-based Substrate runtime for Trex nodes."
+description = "A fresh FRAME-based Substrate runtime for TREX nodes."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io/"
 edition = "2021"
@@ -48,7 +48,7 @@ hex-literal = { version = "0.3.4", optional = true }
 trex-constants = { path = "../primitives/constants"}
 pallet-difficulty = { version = "0.1.0", default-features = false, path = "../pallets/difficulty" }
 
-# Local Pallet for Trex Storage
+# Local Pallet for TREX Storage
 pallet-storage = { default-features = false, path = "../pallets/storage" }
 pallet-storage-runtime-api = { default-features = false, path = "../pallets/storage/runtime-api" }
 pallet-trex = { default-features = false, path = "../pallets/trex" }

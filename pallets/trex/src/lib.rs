@@ -5,7 +5,7 @@
 /// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 pub mod weights;
-pub use weights::TrexWeight;
+pub use weights::TREXWeight;
 
 #[cfg(test)]
 mod mock;
@@ -30,7 +30,7 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// Weight information for extrinsics in this pallet.
-		type TrexWeight: TrexWeight;
+		type TREXWeight: TREXWeight;
 	}
 
 	#[pallet::pallet]
@@ -43,15 +43,15 @@ pub mod pallet {
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	#[pallet::storage]
 	#[pallet::getter(fn something)]
-	pub type TrexStorage<T> = StorageValue<_, Vec<u8>>;
+	pub type TREXStorage<T> = StorageValue<_, Vec<u8>>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Trex Data Send Event
-		TrexDataSent(T::AccountId, Vec<u8>),
+		/// TREX Data Send Event
+		TREXDataSent(T::AccountId, Vec<u8>),
 	}
 
 	// Errors inform users that something went wrong.
@@ -60,14 +60,14 @@ pub mod pallet {
 		/// Error names should be descriptive.
 		NoneValue,
 		/// Errors should have helpful documentation associated with them.
-		TrexInfoSentOverflow,
+		TREXInfoSentOverflow,
 	}
 
-	// Struct for holding Trex information.
+	// Struct for holding TREX information.
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, RuntimeDebug, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	#[codec(mel_bound())]
-	pub struct TrexData<T: Config> {
+	pub struct TREXData<T: Config> {
 		pub cipher_list: Vec<u8>,
 		pub from: T::AccountId,
 	}
@@ -80,7 +80,7 @@ pub mod pallet {
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		/// #[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		#[pallet::weight(T::TrexWeight::send_trex_data())]
+		#[pallet::weight(T::TREXWeight::send_trex_data())]
 		pub fn send_trex_data(
 			origin: OriginFor<T>,
 			_from: T::AccountId,
@@ -91,18 +91,18 @@ pub mod pallet {
 			// https://docs.substrate.io/v3/runtime/origins
 			let who = ensure_signed(origin)?;
 
-			//construct InfoData Struct for TrexStorage
+			//construct InfoData Struct for TREXStorage
 			let owner = who.clone();
 			let ciphers = cipher_list.clone();
-			let trex_data = TrexData::<T> { cipher_list: ciphers, from: owner };
+			let trex_data = TREXData::<T> { cipher_list: ciphers, from: owner };
 
 			//encode InfoData instance to vec<u8>
 			let trex_byte_data = trex_data.encode();
 			// Update storage.
-			<TrexStorage<T>>::put(&trex_byte_data);
+			<TREXStorage<T>>::put(&trex_byte_data);
 
 			// Emit an event.
-			Self::deposit_event(Event::TrexDataSent(who, trex_byte_data));
+			Self::deposit_event(Event::TREXDataSent(who, trex_byte_data));
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}

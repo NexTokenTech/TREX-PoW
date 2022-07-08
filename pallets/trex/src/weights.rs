@@ -44,13 +44,13 @@ use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
 use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_balances.
-pub trait TrexWeight {
+pub trait TREXWeight {
     fn send_trex_data() -> Weight;
 }
 
 /// Weights for pallet_balances using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> TrexWeight for SubstrateWeight<T> {
+impl<T: frame_system::Config> TREXWeight for SubstrateWeight<T> {
     // Storage: System Account (r:1 w:1)
     fn send_trex_data() -> Weight {
         (70_952_000 as Weight)
@@ -60,7 +60,7 @@ impl<T: frame_system::Config> TrexWeight for SubstrateWeight<T> {
 }
 
 // For backwards compatibility and tests
-impl TrexWeight for () {
+impl TREXWeight for () {
     // Storage: System Account (r:1 w:1)
     fn send_trex_data() -> Weight {
         (70_952_000 as Weight)
