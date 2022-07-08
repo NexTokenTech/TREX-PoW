@@ -20,7 +20,7 @@ use sp_core::{
 use sp_runtime::generic::BlockId;
 use std::{sync::Arc, thread, time::Duration};
 
-use log::warn;
+use log::{info, warn};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
 use sc_network::config::NodeKeyConfig;
@@ -213,6 +213,11 @@ pub fn generate_mining_key(
 		number += 1;
 	}
 	let mining_key = U256::from_little_endian(&local_peer_vec);
+	info!(
+			target: "sub-libp2p",
+			"🏷  Local node identity is: {}",
+			local_peer_id.to_base58(),
+		);
 	Ok(mining_key)
 }
 
