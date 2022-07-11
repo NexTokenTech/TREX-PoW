@@ -12,12 +12,13 @@ pub fn generate_mining_seed(
     let mut local_peer_vec = local_peer_id.to_bytes();
 
     let mut number = 0;
-    let maxnumber = local_peer_vec.len()/2;
-    while number < maxnumber {
+    let max_number = local_peer_vec.len()/2;
+    while number < max_number {
         local_peer_vec.pop();
         number += 1;
     }
     let mining_key = U256::from_little_endian(&local_peer_vec);
+    // TODO: if the runtime info problem is resolved, this part of code is no longer necessary.
     info!(
 			target: "sub-libp2p",
 			"🏷  Local node identity is: {}",

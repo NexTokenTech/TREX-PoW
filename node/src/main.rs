@@ -7,7 +7,7 @@ mod service;
 mod cli;
 mod command;
 mod rpc;
-mod mining_seed;
+mod mining;
 
 fn main() -> sc_cli::Result<()> {
 	command::run()

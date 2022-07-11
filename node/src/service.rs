@@ -1,11 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use trex_pow::{genesis, TREXAlgorithm, Compute, Seal};
-use trex_runtime::{self, opaque::Block, RuntimeApi};
-use trex_constants::{
-	MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT, INIT_DIFFICULTY,
-};
-use futures::{executor::block_on};
+use futures::executor::block_on;
 use sc_client_api::{Backend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{
@@ -19,11 +14,14 @@ use sp_core::{
 };
 use sp_runtime::generic::BlockId;
 use std::{sync::Arc, thread, time::Duration};
+use trex_constants::{INIT_DIFFICULTY, MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT};
+use trex_pow::{genesis, Compute, Seal, TREXAlgorithm};
+use trex_runtime::{self, opaque::Block, RuntimeApi};
 
-use log::{warn};
+use crate::mining::generate_mining_seed;
+use log::warn;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
-use crate::mining_seed::generate_mining_seed;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -240,7 +238,6 @@ pub fn new_full(
 
 	let keystore_path = config.keystore.path().map(|p| p.to_owned());
 
-	let node_key = config.network.node_key.clone();
 	if is_authority {
 		let author = decode_author(author, keystore_container.sync_keystore(), keystore_path)?;
 		let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -316,6 +313,7 @@ pub fn new_full(
 					}
 					None
 				};
+				let node_key = config.network.node_key.clone();
 				// WARNING: do not use 0 as initial seed.
 				let mut mining_seed = generate_mining_seed(node_key).unwrap_or(U256::from(1i32));
 				loop {
