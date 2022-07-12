@@ -290,6 +290,7 @@ pub fn new_full(
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
 			let current_backend = backend.clone();
+			let node_key = config.network.node_key.clone();
 			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
@@ -313,7 +314,6 @@ pub fn new_full(
 					}
 					None
 				};
-				let node_key = config.network.node_key.clone();
 				// WARNING: do not use 0 as initial seed.
 				let mut mining_seed = generate_mining_seed(node_key).unwrap_or(U256::from(1i32));
 				loop {
