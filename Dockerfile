@@ -31,7 +31,7 @@ COPY . /rustbuilder/trex
 
 # PREPARE OPERATING SYSTEM & BUILDING ENVIRONMENT
 RUN apt-get update && \
-	apt-get install -y pkg-config libssl-dev git clang libclang-dev diffutils gcc make m4 build-essential curl file
+	apt-get install -y pkg-config libssl-dev git clang libclang-dev diffutils gcc make m4 build-essential curl file cmake
 
 # UPDATE RUST DEPENDENCIES
 ENV RUSTUP_HOME "/rustbuilder/.rustup"
