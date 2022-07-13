@@ -10,6 +10,9 @@ pub struct Cli {
 
 	#[structopt(long)]
 	pub author: Option<String>,
+
+	#[structopt(long)]
+	pub difficulty_adjustment_on: Option<bool>,
 }
 
 #[derive(Debug, clap::Subcommand)]

@@ -125,9 +125,9 @@ pub fn run() -> sc_cli::Result<()> {
 				match config.role {
 					// full node has full parts but not mine
 					Role::Full =>
-						service::new_full(config, false, cli.author.as_ref().map(|s| s.as_str())),
+						service::new_full(config, false, cli.author.as_ref().map(|s| s.as_str()),cli.difficulty_adjustment_on.unwrap_or(true)),
 					// authority node has full parts with mine
-					_ => service::new_full(config, true, cli.author.as_ref().map(|s| s.as_str())),
+					_ => service::new_full(config, true, cli.author.as_ref().map(|s| s.as_str()),cli.difficulty_adjustment_on.unwrap_or(true)),
 				}
 				.map_err(sc_cli::Error::Service)
 			})

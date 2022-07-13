@@ -201,6 +201,7 @@ pub fn new_full(
 	config: Configuration,
 	mining: bool,
 	author: Option<&str>,
+	difficulty_adjustment_on: bool
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -323,10 +324,15 @@ pub fn new_full(
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
 						// dbg!("Found seal!");
 						let mut compute = Compute {
-							difficulty: metadata.difficulty,
+							difficulty: if difficulty_adjustment_on == true {metadata.difficulty} else {INIT_DIFFICULTY},
 							pre_hash: metadata.pre_hash,
 							nonce: U256::from(0i32),
 						};
+
+						dbg!(
+							"🏷  difficulty adjustment on: {} difficulty: {}",
+							difficulty_adjustment_on,compute.difficulty
+						);
 
 						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed) {
 							// Found a new seal, reset the mining seed.
