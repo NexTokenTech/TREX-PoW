@@ -334,7 +334,7 @@ pub fn new_full(
 							difficulty_adjustment_on,compute.difficulty
 						);
 
-						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed) {
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed,difficulty_adjustment_on) {
 							// Found a new seal, reset the mining seed.
 							mining_seed = U256::from(1i32);
 							block_on(worker.submit(new_seal.encode()));

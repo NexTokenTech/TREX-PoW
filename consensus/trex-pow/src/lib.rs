@@ -51,6 +51,8 @@ pub struct Seal {
 	pub solutions: Solutions<U256>,
 	/// A nonce value to seal and verify current mining works.
 	pub nonce: U256,
+	/// A boolean value to decide whether to turn on difficulty adjustment
+	pub difficulty_adjustment_on:bool,
 }
 
 impl Seal {
@@ -58,6 +60,7 @@ impl Seal {
 		&self,
 		compute: &mut C,
 		mining_seed: U256,
+		difficulty_adjustment_on:bool
 	) -> Option<Self> {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
@@ -76,6 +79,7 @@ impl Seal {
 				seeds: new_seeds,
 				solutions: (solutions.0.to_u256(), solutions.1.to_u256()),
 				nonce: compute.get_nonce(),
+				difficulty_adjustment_on
 			})
 		} else {
 			None
@@ -389,13 +393,15 @@ where
 		};
 
 		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
-		if !hash_meets_difficulty(&seal.difficulty, difficulty) {
-			dbg!("The current node difficulty cannot match the difficulty in header's seal!");
-			return Ok(false);
+		if seal.difficulty_adjustment_on == true {
+			if !hash_meets_difficulty(&seal.difficulty, difficulty) {
+				dbg!("The current node difficulty cannot match the difficulty in header's seal!");
+				return Ok(false);
+			}
 		}
 
 		// Make sure the provided work actually comes from the correct pre_hash
-		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
+		let header = Compute {difficulty: seal.difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
 		let pubkey = PublicKey::from_raw(raw_key);
 		let verifier = SolutionVerifier { pubkey };
