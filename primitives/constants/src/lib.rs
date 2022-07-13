@@ -1,4 +1,4 @@
-//! Trex primitive constants and types.
+//! TREX primitive constants and types.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 pub type Difficulty = u128;
@@ -30,7 +30,7 @@ pub const DIFFICULTY_DAMP_FACTOR: u128 = 3;
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u128 = 32;
 /// Initial mining difficulty
-pub const INIT_DIFFICULTY: u128 = 48;
+pub const INIT_DIFFICULTY: u128 = 59;
 /// Maximum difficulty.
 pub const MAX_DIFFICULTY: u128 = 224;
 

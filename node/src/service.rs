@@ -1,11 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use trex_pow::{genesis, TrexAlgorithm, Compute, Seal};
-use trex_runtime::{self, opaque::Block, RuntimeApi};
-use trex_constants::{
-	MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT, INIT_DIFFICULTY,
-};
-use futures::{executor::block_on};
+use futures::executor::block_on;
 use sc_client_api::{Backend, ExecutorProvider};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{
@@ -19,7 +14,11 @@ use sp_core::{
 };
 use sp_runtime::generic::BlockId;
 use std::{sync::Arc, thread, time::Duration};
+use trex_constants::{INIT_DIFFICULTY, MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT};
+use trex_pow::{genesis, Compute, Seal, TREXAlgorithm};
+use trex_runtime::{self, opaque::Block, RuntimeApi};
 
+use crate::mining::generate_mining_seed;
 use log::warn;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
@@ -109,7 +108,7 @@ pub fn new_partial(
 				Arc<FullClient>,
 				FullClient,
 				FullSelectChain,
-				TrexAlgorithm<FullClient>,
+				TREXAlgorithm<FullClient>,
 				impl sp_consensus::CanAuthorWith<Block>,
 				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
 			>,
@@ -161,7 +160,7 @@ pub fn new_partial(
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-	let algorithm = trex_pow::TrexAlgorithm::new(client.clone());
+	let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
 
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
@@ -253,7 +252,7 @@ pub fn new_full(
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 		if mining {
-			let algorithm = trex_pow::TrexAlgorithm::new(client.clone());
+			let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
 			// Parameter details:
 			//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
 			// Also refer to kulupu config:
@@ -291,6 +290,7 @@ pub fn new_full(
 			// mining worker with mutex lock and arc pointer
 			let worker = Arc::new(_worker);
 			let current_backend = backend.clone();
+			let node_key = config.network.node_key.clone();
 			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
@@ -315,7 +315,7 @@ pub fn new_full(
 					None
 				};
 				// WARNING: do not use 0 as initial seed.
-				let mut mining_seed = U256::from(1i32);
+				let mut mining_seed = generate_mining_seed(node_key).unwrap_or(U256::from(1i32));
 				loop {
 					let worker = Arc::clone(&worker);
 					let metadata = worker.metadata();

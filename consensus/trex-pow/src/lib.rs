@@ -293,10 +293,10 @@ impl SolutionVerifier {
 /// A minimal PoW algorithm that uses pollard rho method.
 /// Difficulty is fixed at 48 bit long uint.
 #[derive(Clone)]
-pub struct MinimalTrexAlgorithm;
+pub struct MinimalTREXAlgorithm;
 
-// Here we implement the minimal Trex Pow Algorithm trait
-impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTrexAlgorithm {
+// Here we implement the minimal TREX Pow Algorithm trait
+impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTREXAlgorithm {
 	type Difficulty = Difficulty;
 
 	fn difficulty(&self, _parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
@@ -337,26 +337,26 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTrexAlgorithm {
 
 /// A complete PoW Algorithm that uses Sha3 hashing.
 /// Needs a reference to the client so it can grab the difficulty from the runtime.
-pub struct TrexAlgorithm<C> {
+pub struct TREXAlgorithm<C> {
 	client: Arc<C>,
 }
 
-impl<C> TrexAlgorithm<C> {
+impl<C> TREXAlgorithm<C> {
 	pub fn new(client: Arc<C>) -> Self {
 		Self { client }
 	}
 }
 
 // Manually implement clone. Deriving doesn't work because
-// it'll derive impl<C: Clone> Clone for TrexAlgorithm<C>. But C in practice isn't Clone.
-impl<C> Clone for TrexAlgorithm<C> {
+// it'll derive impl<C: Clone> Clone for TREXAlgorithm<C>. But C in practice isn't Clone.
+impl<C> Clone for TREXAlgorithm<C> {
 	fn clone(&self) -> Self {
 		Self::new(self.client.clone())
 	}
 }
 
 // Here we implement the general PowAlgorithm trait for our concrete Sha3Algorithm
-impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for TrexAlgorithm<C>
+impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for TREXAlgorithm<C>
 where
 	C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
 	C::Api: DifficultyApi<B, Difficulty>,

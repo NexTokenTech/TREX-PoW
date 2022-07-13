@@ -1,7 +1,7 @@
 {
-  "name": "TREX AWS testnet 2022",
-  "id": "testnet2022",
-  "chainType": "Live",
+  "name": "Development",
+  "id": "dev",
+  "chainType": "Development",
   "bootNodes": [],
   "telemetryEndpoints": null,
   "protocolId": "trexdev",
@@ -41,7 +41,7 @@
         "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
       },
       "difficultyModule": {
-        "initialDifficulty": 41
+        "initialDifficulty": 48
       },
       "rewards": {
         "rewards": 60000000000000
