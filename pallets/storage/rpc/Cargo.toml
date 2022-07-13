@@ -1,11 +1,12 @@
 [package]
 name = "pallet-storage-rpc"
 version = "4.0.0-dev"
-edition = "2021"
-authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
-repository = 'https://github.com/substrate-developer-hub/recipes'
 description = "A pallet that demonstrates simple RPC for summing numbers"
-license = "GPL-3.0-or-later"
+authors = ["NexToken Technologies - Trex Dev Team <team@trex.ink>"]
+homepage = "https://trex.ink"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/NexTokenTech/Trex"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [

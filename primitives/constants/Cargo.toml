@@ -1,8 +1,11 @@
 [package]
 name = "trex-constants"
-version = "0.1.0"
+version = "0.10.0-dev"
+description = "Primitives for constants"
+authors = ["NexToken Technologies - Trex Dev Team <team@trex.ink>"]
+homepage = "https://trex.ink"
 edition = "2021"
-authors = ["Fanghao Yang <yangfanghao@gmail.com>"]
-license = "GPL-3.0-or-later"
+license = "Apache-2.0"
+repository = "https://github.com/NexTokenTech/Trex"
 
 [dependencies]

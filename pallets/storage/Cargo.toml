@@ -2,12 +2,11 @@
 name = "pallet-storage"
 version = "4.0.0-dev"
 description = "FRAME pallet template for defining custom runtime logic."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io/"
+authors = ["NexToken Technologies - Trex Dev Team <team@trex.ink>"]
+homepage = "https://trex.ink"
 edition = "2021"
-license = "GPL-3.0-or-later"
-publish = false
-repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
+license = "Apache-2.0"
+repository = "https://github.com/NexTokenTech/Trex"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

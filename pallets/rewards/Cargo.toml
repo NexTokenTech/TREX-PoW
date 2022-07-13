@@ -1,13 +1,12 @@
 [package]
 name = "pallet-rewards"
-version = "0.1.0"
-description = "FRAME pallet for TREX runtime rewards."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io/"
+version = "0.10.0-dev"
+description = "FRAME pallet for Trex runtime rewards."
+authors = ["NexToken Technologies - Trex Dev Team <team@trex.ink>"]
+homepage = "https://trex.ink"
 edition = "2021"
-license = "GPL-3.0-or-later"
-publish = false
-repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
+license = "Apache-2.0"
+repository = "https://github.com/NexTokenTech/Trex"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
