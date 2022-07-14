@@ -51,16 +51,13 @@ pub struct Seal {
 	pub solutions: Solutions<U256>,
 	/// A nonce value to seal and verify current mining works.
 	pub nonce: U256,
-	/// A boolean value to decide whether to turn on difficulty adjustment
-	pub difficulty_adjustment_on:bool,
 }
 
 impl Seal {
 	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(
 		&self,
 		compute: &mut C,
-		mining_seed: U256,
-		difficulty_adjustment_on:bool
+		mining_seed: U256
 	) -> Option<Self> {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
@@ -79,7 +76,6 @@ impl Seal {
 				seeds: new_seeds,
 				solutions: (solutions.0.to_u256(), solutions.1.to_u256()),
 				nonce: compute.get_nonce(),
-				difficulty_adjustment_on
 			})
 		} else {
 			None
@@ -343,11 +339,12 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTREXAlgorithm {
 /// Needs a reference to the client so it can grab the difficulty from the runtime.
 pub struct TREXAlgorithm<C> {
 	client: Arc<C>,
+	min_algo: bool
 }
 
 impl<C> TREXAlgorithm<C> {
-	pub fn new(client: Arc<C>) -> Self {
-		Self { client }
+	pub fn new(client: Arc<C>,min_algo:bool) -> Self {
+		Self { client , min_algo}
 	}
 }
 
@@ -355,7 +352,7 @@ impl<C> TREXAlgorithm<C> {
 // it'll derive impl<C: Clone> Clone for TREXAlgorithm<C>. But C in practice isn't Clone.
 impl<C> Clone for TREXAlgorithm<C> {
 	fn clone(&self) -> Self {
-		Self::new(self.client.clone())
+		Self::new(self.client.clone(),self.min_algo.clone())
 	}
 }
 
@@ -368,14 +365,18 @@ where
 	type Difficulty = Difficulty;
 
 	fn difficulty(&self, parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
-		let parent_id = BlockId::<B>::hash(parent);
-		let difficulty_result = self.client.runtime_api().difficulty(&parent_id).map_err(|err| {
-			sc_consensus_pow::Error::Environment(format!(
-				"Fetching difficulty from runtime failed: {:?}",
-				err
-			))
-		});
-		difficulty_result
+		return if self.min_algo == true {
+			Ok(INIT_DIFFICULTY as Difficulty)
+		}else {
+			let parent_id = BlockId::<B>::hash(parent);
+			let difficulty_result = self.client.runtime_api().difficulty(&parent_id).map_err(|err| {
+				sc_consensus_pow::Error::Environment(format!(
+					"Fetching difficulty from runtime failed: {:?}",
+					err
+				))
+			});
+			difficulty_result
+		}
 	}
 
 	fn verify(
@@ -393,11 +394,9 @@ where
 		};
 
 		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
-		if seal.difficulty_adjustment_on == true {
-			if !hash_meets_difficulty(&seal.difficulty, difficulty) {
-				dbg!("The current node difficulty cannot match the difficulty in header's seal!");
-				return Ok(false);
-			}
+		if !hash_meets_difficulty(&seal.difficulty, difficulty) {
+			dbg!("The current node difficulty cannot match the difficulty in header's seal!");
+			return Ok(false);
 		}
 
 		// Make sure the provided work actually comes from the correct pre_hash

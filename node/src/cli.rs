@@ -12,7 +12,7 @@ pub struct Cli {
 	pub author: Option<String>,
 
 	#[structopt(long)]
-	pub difficulty_adjustment_on: Option<bool>,
+	pub min_algo: Option<bool>,
 }
 
 #[derive(Debug, clap::Subcommand)]

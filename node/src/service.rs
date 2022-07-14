@@ -95,6 +95,7 @@ type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 #[allow(clippy::type_complexity)]
 pub fn new_partial(
 	config: &Configuration,
+	min_algo: bool
 ) -> Result<
 	PartialComponents<
 		FullClient,
@@ -160,7 +161,7 @@ pub fn new_partial(
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-	let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
+	let algorithm =  trex_pow::TREXAlgorithm::new(client.clone(),min_algo);
 
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
@@ -201,7 +202,7 @@ pub fn new_full(
 	config: Configuration,
 	mining: bool,
 	author: Option<&str>,
-	difficulty_adjustment_on: bool
+	min_algo: bool
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -212,7 +213,7 @@ pub fn new_full(
 		select_chain,
 		transaction_pool,
 		other: (pow_block_import, mut telemetry),
-	} = new_partial(&config)?;
+	} = new_partial(&config,min_algo)?;
 
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
@@ -253,7 +254,7 @@ pub fn new_full(
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 		if mining {
-			let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
+			let algorithm = trex_pow::TREXAlgorithm::new(client.clone(),min_algo);
 			// Parameter details:
 			//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
 			// Also refer to kulupu config:
@@ -324,17 +325,17 @@ pub fn new_full(
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
 						// dbg!("Found seal!");
 						let mut compute = Compute {
-							difficulty: if difficulty_adjustment_on == true {metadata.difficulty} else {INIT_DIFFICULTY},
+							difficulty: metadata.difficulty,
 							pre_hash: metadata.pre_hash,
 							nonce: U256::from(0i32),
 						};
 
 						dbg!(
 							"🏷  difficulty adjustment on: {} difficulty: {}",
-							difficulty_adjustment_on,compute.difficulty
+							min_algo,compute.difficulty
 						);
 
-						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed,difficulty_adjustment_on) {
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed) {
 							// Found a new seal, reset the mining seed.
 							mining_seed = U256::from(1i32);
 							block_on(worker.submit(new_seal.encode()));

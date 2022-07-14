@@ -60,21 +60,21 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config)?;
+					service::new_partial(&config,false)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = service::new_partial(&config)?;
+				let PartialComponents { client, task_manager, .. } = service::new_partial(&config,false)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = service::new_partial(&config)?;
+				let PartialComponents { client, task_manager, .. } = service::new_partial(&config,false)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
 		},
@@ -82,7 +82,7 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config)?;
+					service::new_partial(&config,false)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -94,7 +94,7 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, backend, .. } =
-					service::new_partial(&config)?;
+					service::new_partial(&config,false)?;
 				Ok((cmd.run(client, backend, None), task_manager))
 			})
 		},
@@ -125,9 +125,9 @@ pub fn run() -> sc_cli::Result<()> {
 				match config.role {
 					// full node has full parts but not mine
 					Role::Full =>
-						service::new_full(config, false, cli.author.as_ref().map(|s| s.as_str()),cli.difficulty_adjustment_on.unwrap_or(true)),
+						service::new_full(config, false, cli.author.as_ref().map(|s| s.as_str()),cli.min_algo.unwrap_or(false)),
 					// authority node has full parts with mine
-					_ => service::new_full(config, true, cli.author.as_ref().map(|s| s.as_str()),cli.difficulty_adjustment_on.unwrap_or(true)),
+					_ => service::new_full(config, true, cli.author.as_ref().map(|s| s.as_str()),cli.min_algo.unwrap_or(false)),
 				}
 				.map_err(sc_cli::Error::Service)
 			})

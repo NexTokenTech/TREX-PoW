@@ -19,6 +19,5 @@ pub fn genesis_seal(difficulty: Difficulty) -> Seal {
 		seeds: genesis_key_seeds,
 		solutions: (genesis_solution.clone(), genesis_solution),
 		nonce: U256::from(1i32),
-		difficulty_adjustment_on:true
 	}
 }
