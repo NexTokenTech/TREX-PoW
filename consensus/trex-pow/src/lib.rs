@@ -5,7 +5,6 @@ pub mod utils;
 
 use blake3;
 use codec::{Decode, Encode};
-use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
 use elgamal_trex::{
 	elgamal::{PrivateKey, PublicKey, RawKey, RawPublicKey},
 	Seed,
@@ -18,6 +17,7 @@ use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
+use trex_constants::{Difficulty, INIT_DIFFICULTY, MAX_DIFFICULTY, MIN_DIFFICULTY};
 
 // local packages.
 pub use crate::generic::{
@@ -57,7 +57,7 @@ impl Seal {
 	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(
 		&self,
 		compute: &mut C,
-		mining_seed: U256
+		mining_seed: U256,
 	) -> Option<Self> {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
@@ -328,7 +328,7 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTREXAlgorithm {
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
 		if verifier.verify(&solutions, &header) {
-			return Ok(true)
+			return Ok(true);
 		}
 
 		Ok(false)
@@ -339,12 +339,12 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTREXAlgorithm {
 /// Needs a reference to the client so it can grab the difficulty from the runtime.
 pub struct TREXAlgorithm<C> {
 	client: Arc<C>,
-	min_algo: bool
+	min_algo: bool,
 }
 
 impl<C> TREXAlgorithm<C> {
-	pub fn new(client: Arc<C>,min_algo:bool) -> Self {
-		Self { client , min_algo}
+	pub fn new(client: Arc<C>, min_algo: bool) -> Self {
+		Self { client, min_algo }
 	}
 }
 
@@ -352,7 +352,7 @@ impl<C> TREXAlgorithm<C> {
 // it'll derive impl<C: Clone> Clone for TREXAlgorithm<C>. But C in practice isn't Clone.
 impl<C> Clone for TREXAlgorithm<C> {
 	fn clone(&self) -> Self {
-		Self::new(self.client.clone(),self.min_algo.clone())
+		Self::new(self.client.clone(), self.min_algo.clone())
 	}
 }
 
@@ -367,16 +367,17 @@ where
 	fn difficulty(&self, parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
 		return if self.min_algo == true {
 			Ok(INIT_DIFFICULTY as Difficulty)
-		}else {
+		} else {
 			let parent_id = BlockId::<B>::hash(parent);
-			let difficulty_result = self.client.runtime_api().difficulty(&parent_id).map_err(|err| {
-				sc_consensus_pow::Error::Environment(format!(
-					"Fetching difficulty from runtime failed: {:?}",
-					err
-				))
-			});
+			let difficulty_result =
+				self.client.runtime_api().difficulty(&parent_id).map_err(|err| {
+					sc_consensus_pow::Error::Environment(format!(
+						"Fetching difficulty from runtime failed: {:?}",
+						err
+					))
+				});
 			difficulty_result
-		}
+		};
 	}
 
 	fn verify(
@@ -400,7 +401,8 @@ where
 		}
 
 		// Make sure the provided work actually comes from the correct pre_hash
-		let header = Compute {difficulty: seal.difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
+		let header =
+			Compute { difficulty: seal.difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
 		let pubkey = PublicKey::from_raw(raw_key);
 		let verifier = SolutionVerifier { pubkey };
@@ -409,7 +411,7 @@ where
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
 		if verifier.verify(&solutions, &header) {
-			return Ok(true)
+			return Ok(true);
 		}
 		dbg!("The block header cannot be verified!");
 		Ok(false)
@@ -432,9 +434,9 @@ pub fn pollard_rho<C: Clone + Hash<Integer, U256>>(
 		state_2 = state_2.transit(&mut compute_2).unwrap().transit(&mut compute_2).unwrap();
 		if &state_1.work == &state_2.work {
 			if &state_1.solution != &state_2.solution {
-				return Some((state_1.solution, state_2.solution))
+				return Some((state_1.solution, state_2.solution));
 			}
-			return None
+			return None;
 		}
 		i += 1;
 	}
@@ -443,8 +445,8 @@ pub fn pollard_rho<C: Clone + Hash<Integer, U256>>(
 
 #[cfg(test)]
 mod tests {
-	use elgamal_trex::KeyGenerator;
 	use super::*;
+	use elgamal_trex::KeyGenerator;
 	use rug::Integer;
 
 	#[test]
@@ -478,7 +480,7 @@ mod tests {
 						&validate, &verifier.pubkey.h,
 						"The found private key is not valid!"
 					);
-					return
+					return;
 				} else {
 					panic!("Failed to derive private key!")
 				}
