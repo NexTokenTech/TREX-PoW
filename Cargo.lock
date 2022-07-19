@@ -4168,7 +4168,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-rewards"
-version = "0.1.0"
+version = "0.10.0-dev"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7744,7 +7744,7 @@ dependencies = [
 
 [[package]]
 name = "trex-constants"
-version = "0.1.0"
+version = "0.10.0-dev"
 
 [[package]]
 name = "trex-inherent"
@@ -7763,7 +7763,7 @@ dependencies = [
 
 [[package]]
 name = "trex-node"
-version = "4.0.1-dev"
+version = "0.10.0-dev"
 dependencies = [
  "clap 3.2.8",
  "elgamal_trex",
@@ -7811,11 +7811,12 @@ dependencies = [
 
 [[package]]
 name = "trex-pow"
-version = "0.1.0"
+version = "0.10.0-dev"
 dependencies = [
  "blake3",
  "criterion",
  "elgamal_trex",
+ "log",
  "parity-scale-codec",
  "rand 0.8.5",
  "rug",

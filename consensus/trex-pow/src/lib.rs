@@ -18,6 +18,7 @@ use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
+use log::{info, warn};
 
 // local packages.
 pub use crate::generic::{
@@ -251,7 +252,7 @@ impl SolutionVerifier {
 		let y_1 = self.derive(&solutions.0);
 		let y_2 = self.derive(&solutions.1);
 		if y_1 != y_2 {
-			dbg!("The solution is not valid, cannot pass the block verification!");
+			warn!("The solution is not valid, cannot pass the block verification!");
 			return false;
 		}
 		// if solutions are valid, verify the hash of nonce.
@@ -293,14 +294,15 @@ impl SolutionVerifier {
 /// A minimal PoW algorithm that uses pollard rho method.
 /// Difficulty is fixed at 48 bit long uint.
 #[derive(Clone)]
-pub struct MinimalTREXAlgorithm;
+pub struct MinTREXAlgo;
 
 // Here we implement the minimal TREX Pow Algorithm trait
-impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTREXAlgorithm {
+impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinTREXAlgo {
 	type Difficulty = Difficulty;
 
 	fn difficulty(&self, _parent: B::Hash) -> Result<Self::Difficulty, Error<B>> {
 		// Fixed difficulty hardcoded here
+		info!("⛏ Fixed mining difficulty without adjustment: {:?}", INIT_DIFFICULTY);
 		Ok(INIT_DIFFICULTY as Difficulty)
 	}
 
@@ -337,11 +339,11 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinimalTREXAlgorithm {
 
 /// A complete PoW Algorithm that uses Sha3 hashing.
 /// Needs a reference to the client so it can grab the difficulty from the runtime.
-pub struct TREXAlgorithm<C> {
+pub struct TREXAlgo<C> {
 	client: Arc<C>,
 }
 
-impl<C> TREXAlgorithm<C> {
+impl<C> TREXAlgo<C> {
 	pub fn new(client: Arc<C>) -> Self {
 		Self { client }
 	}
@@ -349,14 +351,14 @@ impl<C> TREXAlgorithm<C> {
 
 // Manually implement clone. Deriving doesn't work because
 // it'll derive impl<C: Clone> Clone for TREXAlgorithm<C>. But C in practice isn't Clone.
-impl<C> Clone for TREXAlgorithm<C> {
+impl<C> Clone for TREXAlgo<C> {
 	fn clone(&self) -> Self {
 		Self::new(self.client.clone())
 	}
 }
 
 // Here we implement the general PowAlgorithm trait for our concrete Sha3Algorithm
-impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for TREXAlgorithm<C>
+impl<B: BlockT<Hash = H256>, C> PowAlgorithm<B> for TREXAlgo<C>
 where
 	C: HeaderBackend<B> + AuxStore + ProvideRuntimeApi<B>,
 	C::Api: DifficultyApi<B, Difficulty>,
@@ -371,6 +373,7 @@ where
 				err
 			))
 		});
+		info!("⛏ The mining difficulty is adjusted as {:?}", difficulty_result);
 		difficulty_result
 	}
 
@@ -390,7 +393,7 @@ where
 
 		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
 		if !hash_meets_difficulty(&seal.difficulty, difficulty) {
-			dbg!("The current node difficulty cannot match the difficulty in header's seal!");
+			warn!("The current node difficulty cannot match the difficulty in header's seal!");
 			return Ok(false);
 		}
 

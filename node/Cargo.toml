@@ -81,3 +81,5 @@ default = []
 runtime-benchmarks = [
 	"trex-runtime/runtime-benchmarks",
 ]
+# if using minimal algorithm, there is no difficulty adjustment.
+min-algo = []
