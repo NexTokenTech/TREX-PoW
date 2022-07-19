@@ -53,6 +53,14 @@ The provided `cargo run` command will launch a temporary node and its state will
 you terminate the process. After the project has been built, there are other ways to launch the
 node.
 
+### Disable/Enable Mining Difficulty Adjustment
+In case of testing & development, the mining difficulty adjustment may be turned off by adding feature "min-algo" 
+to the `cargo run` command so that the minimal mining algorithm will be used (without difficulty adjustment).
+
+```sh
+cargo run --release --features min-algo -- --dev --tmp
+```
+
 ### Single-Node Development Chain
 
 This command will start the single-node development chain with non-persistent state:

@@ -29,7 +29,7 @@ pub fn generate_mining_seed(
     // TODO: if the runtime info problem is resolved, this part of code is no longer necessary.
     info!(
 			target: "sub-libp2p",
-			"🏷  Local node identity is: {}",
+			"🏷 Local node identity is: {}",
 			local_peer_id.to_base58(),
 		);
     // Return Result containing mining_key

@@ -15,11 +15,15 @@ use sp_core::{
 use sp_runtime::generic::BlockId;
 use std::{sync::Arc, thread, time::Duration};
 use trex_constants::{INIT_DIFFICULTY, MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT};
-use trex_pow::{genesis, Compute, Seal, TREXAlgorithm};
+#[cfg(feature = "min-algo")]
+use trex_pow::MinTREXAlgo;
+#[cfg(not(feature = "min-algo"))]
+use trex_pow::TREXAlgo;
+use trex_pow::{genesis, Compute, Seal};
 use trex_runtime::{self, opaque::Block, RuntimeApi};
 
 use crate::mining::generate_mining_seed;
-use log::warn;
+use log::{info, warn};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
 
@@ -60,7 +64,7 @@ pub fn decode_author(
 			Ok(address)
 		}
 	} else {
-		dbg!("The node is configured for mining, but no author key is provided.");
+		info!("⛏ The node is configured for mining, but no author key is provided.");
 
 		let (pair, phrase, _) = trex_pow::app::Pair::generate_with_phrase(None);
 
@@ -74,7 +78,7 @@ pub fn decode_author(
 
 		match keystore_path {
 			Some(path) => {
-				dbg!("You can go to {:?} to find the seed phrase of the mining key.", path);
+				info!("🔑 You can go to {:?} to find the seed phrase of the mining key.", path);
 			},
 			None => {
 				warn!("Keystore is not local. This means that your mining key will be lost when exiting the program. This should only happen if you are in dev mode.");
@@ -89,6 +93,11 @@ type FullClient =
 	sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+
+#[cfg(feature = "min-algo")]
+type PowAlgo = MinTREXAlgo;
+#[cfg(not(feature = "min-algo"))]
+type PowAlgo = TREXAlgo<FullClient>;
 
 /// Returns most parts of a service. Not enough to run a full chain,
 /// But enough to perform chain operations like purge-chain
@@ -108,11 +117,12 @@ pub fn new_partial(
 				Arc<FullClient>,
 				FullClient,
 				FullSelectChain,
-				TREXAlgorithm<FullClient>,
+				PowAlgo,
 				impl sp_consensus::CanAuthorWith<Block>,
 				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
 			>,
 			Option<Telemetry>,
+			PowAlgo,
 		),
 	>,
 	ServiceError,
@@ -160,7 +170,10 @@ pub fn new_partial(
 
 	let can_author_with = sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-	let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
+	#[cfg(feature = "min-algo")]
+	let algorithm = trex_pow::MinTREXAlgo;
+	#[cfg(not(feature = "min-algo"))]
+	let algorithm = trex_pow::TREXAlgo::new(client.clone());
 
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		Arc::clone(&client),
@@ -192,7 +205,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain,
-		other: (pow_block_import, telemetry),
+		other: (pow_block_import, telemetry, algorithm),
 	})
 }
 
@@ -210,7 +223,7 @@ pub fn new_full(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (pow_block_import, mut telemetry),
+		other: (pow_block_import, mut telemetry, algorithm),
 	} = new_partial(&config)?;
 
 	let (network, system_rpc_tx, network_starter) =
@@ -252,7 +265,6 @@ pub fn new_full(
 			sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
 		if mining {
-			let algorithm = trex_pow::TREXAlgorithm::new(client.clone());
 			// Parameter details:
 			//   https://substrate.dev/rustdocs/latest/sc_consensus_pow/fn.start_mining_worker.html
 			// Also refer to kulupu config:
