@@ -1,16 +1,17 @@
+pub mod algorithm;
 pub mod generic;
 pub mod genesis;
+pub mod hash;
 mod keychain;
 pub mod utils;
 
-use blake3;
 use codec::{Decode, Encode};
-use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY, INIT_DIFFICULTY};
 use elgamal_trex::{
 	elgamal::{PrivateKey, PublicKey, RawKey, RawPublicKey},
 	Seed,
 };
-use rug::{integer::Order, rand::RandState, Complete, Integer};
+use log::{info, warn};
+use rug::{rand::RandState, Complete, Integer};
 use sc_client_api::{backend::AuxStore, blockchain::HeaderBackend};
 use sc_consensus_pow::{Error, PowAlgorithm};
 use sp_api::ProvideRuntimeApi;
@@ -18,12 +19,14 @@ use sp_consensus_pow::{DifficultyApi, Seal as RawSeal};
 use sp_core::{H256, U256};
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
-use log::{info, warn};
+use trex_constants::{Difficulty, INIT_DIFFICULTY, MAX_DIFFICULTY, MIN_DIFFICULTY};
 
 // local packages.
 pub use crate::generic::{
 	CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, Solutions, State,
 };
+use algorithm::PollardRhoHash;
+pub use hash::Blake3Compute as Compute;
 use keychain::{yield_pub_keys, RawKeySeeds};
 use utils::{bigint_u256, gen_bigint_range, u256_bigint};
 
@@ -68,7 +71,8 @@ impl Seal {
 		for (idx, key) in keychain.into_iter().enumerate() {
 			new_seeds[idx] = bigint_u256(&key.yield_seed());
 		}
-		if let Some(solutions) = pollard_rho(new_pubkey.clone(), compute, u256_bigint(&mining_seed))
+		let puzzle = new_pubkey.clone();
+		if let Some(solutions) = puzzle.solve(compute, u256_bigint(&mining_seed))
 		{
 			// if find the solutions, build a new seal.
 			Some(Seal {
@@ -90,15 +94,6 @@ impl Seal {
 /// was too high.
 fn hash_meets_difficulty(seal_difficulty: &Difficulty, difficulty: Difficulty) -> bool {
 	seal_difficulty == &difficulty
-}
-
-/// A not-yet-computed attempt to solve the proof of work. Calling the
-/// compute method will compute the hash and return the seal.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug)]
-pub struct Compute {
-	pub difficulty: Difficulty,
-	pub pre_hash: H256,
-	pub nonce: U256,
 }
 
 pub trait OnCompute<E> {
@@ -153,87 +148,6 @@ impl State<Integer> {
 	}
 }
 
-impl Hash<Integer, U256> for Compute {
-	fn set_nonce(&mut self, int: &Integer) {
-		self.nonce = bigint_u256(int);
-	}
-
-	fn get_nonce(&self) -> U256 {
-		self.nonce.clone()
-	}
-
-	fn hash_integer(&self) -> Integer {
-		// digest nonce by hashing with header data.
-		let data = &self.encode()[..];
-		let hash = blake3::hash(&data);
-		// convert hash results to integer in little endian order.
-		Integer::from_digits(hash.as_bytes(), Order::Lsf)
-	}
-}
-
-impl Mapping<Integer> for State<Integer> {
-	/// The pollard rho miner with a mapping function which is hard to compute reversely.
-	fn func_f(&self, x_i: &Integer, y_i: &Integer) -> MapResult<Integer> {
-		let base = &self.pubkey.g;
-		let h = &self.pubkey.h;
-		let p = &self.pubkey.p;
-		match x_i.mod_u(3) {
-			0 => Ok(Integer::from(y_i.pow_mod_ref(x_i, p).unwrap())),
-			1 => {
-				let base_hash_p = Integer::from(base.pow_mod_ref(x_i, p).unwrap());
-				Ok((base_hash_p * y_i).div_rem_euc_ref(p).complete().1)
-			},
-			2 => {
-				let h_hash_p = Integer::from(h.pow_mod_ref(x_i, p).unwrap());
-				Ok((h_hash_p * y_i).div_rem_euc_ref(p).complete().1)
-			},
-			_ => Err(MappingError),
-		}
-	}
-
-	fn func_g(&self, a_i: &Integer, x_i: &Integer) -> MapResult<Integer> {
-		let p_1 = Integer::from(&self.pubkey.p - 1);
-		let a_m_x = (a_i * x_i).complete();
-		let a_p_x = (a_i + x_i).complete();
-		match x_i.mod_u(3) {
-			0 => Ok(a_m_x.div_rem_euc_ref(&p_1).complete().1),
-			1 => Ok(a_p_x.div_rem_euc_ref(&p_1).complete().1),
-			2 => Ok(a_i.clone()),
-			_ => Err(MappingError),
-		}
-	}
-
-	fn func_h(&self, b_i: &Integer, x_i: &Integer) -> MapResult<Integer> {
-		let p_1 = Integer::from(&self.pubkey.p - 1);
-		let b_m_x = (b_i * x_i).complete();
-		let b_p_x = (b_i + x_i).complete();
-		match x_i.mod_u(3) {
-			0 => Ok(b_m_x.div_rem_euc_ref(&p_1).complete().1),
-			1 => Ok(b_i.clone()),
-			2 => Ok(b_p_x.div_rem_euc_ref(&p_1).complete().1),
-			_ => Err(MappingError),
-		}
-	}
-}
-
-impl CycleFinding<Integer, U256> for State<Integer> {
-	/// Single Step Transition between states calculating with hashable data.
-	fn transit<C: Hash<Integer, U256>>(self, hashable: &mut C) -> MapResult<State<Integer>> {
-		hashable.set_nonce(&self.work);
-		let raw_int = hashable.hash_integer();
-		let hash_i = raw_int.div_rem_euc(self.pubkey.p.clone()).1;
-		let work = self.func_f(&hash_i, &self.work)?;
-		let a = self.func_g(&self.solution.a, &hash_i)?;
-		let b = self.func_h(&self.solution.b, &hash_i)?;
-		Ok(State::<Integer> {
-			solution: Solution { a, b, n: self.solution.n },
-			work,
-			nonce: self.work,
-			pubkey: self.pubkey,
-		})
-	}
-}
-
 /// A verifier contains methods to validate mining results.
 pub struct SolutionVerifier {
 	pub pubkey: PublicKey,
@@ -253,7 +167,7 @@ impl SolutionVerifier {
 		let y_2 = self.derive(&solutions.1);
 		if y_1 != y_2 {
 			warn!("The solution is not valid, cannot pass the block verification!");
-			return false;
+			return false
 		}
 		// if solutions are valid, verify the hash of nonce.
 		let hash_i = header.hash_integer().div_rem_euc(self.pubkey.p.clone()).1;
@@ -394,7 +308,7 @@ where
 		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
 		if !hash_meets_difficulty(&seal.difficulty, difficulty) {
 			warn!("The current node difficulty cannot match the difficulty in header's seal!");
-			return Ok(false);
+			return Ok(false)
 		}
 
 		// Make sure the provided work actually comes from the correct pre_hash
@@ -414,35 +328,10 @@ where
 	}
 }
 
-pub fn pollard_rho<C: Clone + Hash<Integer, U256>>(
-	pubkey: PublicKey,
-	compute: &mut C,
-	seed: Integer,
-) -> Option<Solutions<Integer>> {
-	// generate initial states.
-	let mut state_1 = State::<Integer>::from_pub_key(pubkey, seed);
-	let mut state_2 = state_1.clone();
-	let mut compute_2 = compute.clone();
-	let mut i = Integer::ZERO;
-	let n = state_1.solution.n.clone();
-	while &i < &n {
-		state_1 = state_1.transit(compute).unwrap();
-		state_2 = state_2.transit(&mut compute_2).unwrap().transit(&mut compute_2).unwrap();
-		if &state_1.work == &state_2.work {
-			if &state_1.solution != &state_2.solution {
-				return Some((state_1.solution, state_2.solution))
-			}
-			return None
-		}
-		i += 1;
-	}
-	None
-}
-
 #[cfg(test)]
 mod tests {
-	use elgamal_trex::KeyGenerator;
 	use super::*;
+	use elgamal_trex::KeyGenerator;
 	use rug::Integer;
 
 	#[test]
@@ -465,8 +354,9 @@ mod tests {
 			pre_hash: H256::from([1u8; 32]),
 			nonce: U256::from(1i32),
 		};
+		let puzzle = pubkey.clone();
 		loop {
-			if let Some(solutions) = pollard_rho(pubkey.clone(), &mut compute, seed.clone()) {
+			if let Some(solutions) = puzzle.solve(&mut compute, seed.clone()) {
 				let verifier = SolutionVerifier { pubkey };
 				if let Some(key) = verifier.key_gen(&solutions) {
 					let validate = Integer::from(
