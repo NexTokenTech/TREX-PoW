@@ -25,12 +25,14 @@ time:   [475.34 ms 497.87 ms 526.84 ms]
 ```
 
 ## Boost from parallel computing
-The benchmark on parallel computing shows a linear boost on number of CPU cores in use.
-The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (4 cores in use).
+The benchmark on parallel computing shows a boost with square root of the number of CPU cores in use.
+The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (4 cores in use, 
+theoretically 2X speed, actually 1.56X speed).
+The mining difficulty for benchmarking is 39 bit-length.
 
 ```sh
-pollard_rho_parallel/pollard_rho_diff_33_base 
-time:   [587.55 ms 595.61 ms 602.46 ms]
-pollard_rho_parallel/pollard_rho_diff_32_parallel 
-time:   [92.045 ms 97.360 ms 107.71 ms]
+pollard_rho_parallel/pollard_rho_diff_39_base 
+time:   [321.72 ms 334.85 ms 348.50 ms]
+pollard_rho_parallel/pollard_rho_diff_39_parallel 
+time:   [209.65 ms 214.43 ms 220.10 ms]
 ```

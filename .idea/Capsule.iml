@@ -18,6 +18,10 @@
       <sourceFolder url="file://$MODULE_DIR$/consensus/capsule-pow/benches" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/rewards/runtime-api/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/pallets/rewards/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/consensus/trex-pow/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/consensus/trex-pow/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/pallets/trex/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/primitives/consensus/trex_provider/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

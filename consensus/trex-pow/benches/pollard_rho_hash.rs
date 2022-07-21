@@ -53,21 +53,14 @@ fn pollard_rho_parallel_bench(c: &mut Criterion) {
 	group
 		.significance_level(0.1)
 		.sample_size(10)
-		.measurement_time(Duration::from_secs(60));
+		.measurement_time(Duration::from_secs(240));
 
-	group.bench_function("pollard_rho_diff_33_base", |b| {
-		let difficulty = 33u32;
-		let mut compute = get_blake3_block(difficulty);
+	group.bench_function("pollard_rho_diff_39_parallel", |b|{
+		let difficulty = 39u32;
 		let pubkey = get_preset_pubkey(difficulty);
-		b.iter(move || run_pollard_rho(&pubkey, &mut compute))
-	});
-
-	group.bench_function("pollard_rho_diff_32_parallel", |b|{
-		let found = Arc::new(AtomicBool::new(false));
-		let difficulty = 33u32;
-		let pubkey = get_preset_pubkey(difficulty);
-		// use 5 cores in the parallel computing
+		// use 4 cores in the parallel computing
 		b.iter(move || {
+			let found = Arc::new(AtomicBool::new(false));
 			let mut threads = Vec::new();
 			for _ in 0..N_CPU {
 				let flag = found.clone();
@@ -84,6 +77,14 @@ fn pollard_rho_parallel_bench(c: &mut Criterion) {
 			});
 		})
 	});
+
+	group.bench_function("pollard_rho_diff_39_base", |b| {
+		let difficulty = 39u32;
+		let mut compute = get_blake3_block(difficulty);
+		let pubkey = get_preset_pubkey(difficulty);
+		b.iter(move || run_pollard_rho(&pubkey, &mut compute))
+	});
+
 	group.finish();
 }
 
@@ -92,7 +93,7 @@ fn pollard_rho_hash_bench(c: &mut Criterion) {
 	group
 		.significance_level(0.1)
 		.sample_size(10)
-		.measurement_time(Duration::from_secs(60));
+		.measurement_time(Duration::from_secs(120));
 
 	for i in 32..35 {
 		let func_id = format!("pollard_rho_diff_{i}_blake3");

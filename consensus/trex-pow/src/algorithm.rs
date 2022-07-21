@@ -138,9 +138,8 @@ impl PollardRhoHash for PublicKey {
 				if found {
 					// if other work found the solution, drop current work.
 					return None
-				} else {
-					counter = 0;
 				}
+				counter = 0;
 			}
 			// check if found the correct solution
 			if &state_1.work == &state_2.work {

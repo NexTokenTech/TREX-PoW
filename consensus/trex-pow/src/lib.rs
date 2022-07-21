@@ -330,30 +330,39 @@ where
 
 #[cfg(test)]
 mod tests {
+	use std::sync::atomic::AtomicBool;
+	use std::thread;
 	use super::*;
 	use elgamal_trex::KeyGenerator;
 	use rug::Integer;
 
-	#[test]
-	fn try_pollard_rho_with_key_gen() {
+	fn get_test_pubkey(diff: u32) -> PublicKey {
 		// generate a random public key.
-		let difficulty = 24u32;
 		let p = Integer::from(1);
 		let g = Integer::from(1);
 		let h = Integer::from(1);
-		let old_pubkey = PublicKey { p, g, h, bit_length: difficulty };
+		let old_pubkey = PublicKey { p, g, h, bit_length: diff };
 		let mut rand = RandState::new_mersenne_twister();
-		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand, difficulty);
-		let pubkey = PublicKey::from_raw(raw_pubkey);
-		println!("{:?}", pubkey);
+		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand, diff);
+		PublicKey::from_raw(raw_pubkey)
+	}
+
+	fn get_test_header(diff: u32) -> Compute {
+		Compute {
+			difficulty: diff as Difficulty,
+			pre_hash: H256::from([1u8; 32]),
+			nonce: U256::from(1i32),
+		}
+	}
+
+	#[test]
+	fn try_pollard_rho_with_key_gen() {
+		let difficulty = 39;
+		let pubkey = get_test_pubkey(difficulty);
 		let mut loop_count = 0;
 		let limit = 10;
 		let mut seed = Integer::from(1);
-		let mut compute = Compute {
-			difficulty: difficulty as Difficulty,
-			pre_hash: H256::from([1u8; 32]),
-			nonce: U256::from(1i32),
-		};
+		let mut compute = get_test_header(difficulty);
 		let puzzle = pubkey.clone();
 		loop {
 			if let Some(solutions) = puzzle.solve(&mut compute, seed.clone()) {
@@ -377,6 +386,43 @@ mod tests {
 				panic!("Cannot find private key!")
 			}
 		}
+	}
+
+	#[test]
+	fn try_pollard_rho_parallel(){
+		let mut threads = Vec::new();
+		let cpu_n = 4;
+		let found = Arc::new(AtomicBool::new(false));
+		let difficulty = 39;
+		for i in 0..cpu_n {
+			let flag = found.clone();
+			threads.push(thread::spawn(move || {
+				let seed = Integer::from(i);
+				let pubkey = get_test_pubkey(difficulty);
+				let puzzle = pubkey.clone();
+				let mut compute = get_test_header(difficulty);
+				if let Some(solutions) = puzzle.solve_parallel(&mut compute, seed, 10000, flag) {
+					let verifier = SolutionVerifier { pubkey: pubkey.clone() };
+					if let Some(key) = verifier.key_gen(&solutions) {
+						let validate = Integer::from(
+							verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
+						);
+						assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
+						return
+					} else {
+						panic!("Failed to derive private key!")
+					}
+				} else {
+					// print!("Cannot find private key with seed {i}!");
+					return
+				}
+			}));
+		}
+		threads.into_iter().for_each(|thread| {
+			thread
+				.join()
+				.expect("The thread creating or execution failed !")
+		});
 	}
 
 	#[test]
