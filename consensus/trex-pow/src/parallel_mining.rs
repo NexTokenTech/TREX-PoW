@@ -82,6 +82,7 @@ impl<B, I, C> BlockImport<B> for ParallelBlockImport<B, I, C>
 
         //Processing logic after imported a new block
         dbg!("!!!!!!!!!!!!!!!!!!!!!!!!before imported block");
+        self.found.store(true, Ordering::Relaxed);
         self.inner
             .import_block(block, new_cache)
             .await

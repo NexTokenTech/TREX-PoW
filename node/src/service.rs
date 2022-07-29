@@ -27,7 +27,7 @@ use log::{info, warn};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
 use std::sync::{
-	atomic::{AtomicBool},
+	atomic::{AtomicBool,Ordering},
 };
 use async_trait::async_trait;
 use trex_pow::parallel_mining::ParallelBlockImport;
@@ -156,6 +156,7 @@ pub fn new_partial(
 			PowBlockImport,
 			Option<Telemetry>,
 			PowAlgo,
+			Arc<AtomicBool>
 		),
 	>,
 	ServiceError,
@@ -242,7 +243,7 @@ pub fn new_partial(
 		task_manager,
 		transaction_pool,
 		select_chain,
-		other: (pow_block_import, telemetry, algorithm),
+		other: (pow_block_import, telemetry, algorithm, found),
 	})
 }
 
@@ -260,7 +261,7 @@ pub fn new_full(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (pow_block_import, mut telemetry, algorithm),
+		other: (pow_block_import, mut telemetry, algorithm,found),
 	} = new_partial(&config)?;
 
 	let (network, system_rpc_tx, network_starter) =
@@ -377,7 +378,8 @@ pub fn new_full(
 							nonce: U256::from(0i32),
 						};
 
-						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed) {
+						found.store(false, Ordering::Relaxed);
+						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed, found.clone()) {
 							// Found a new seal, reset the mining seed.
 							mining_seed = U256::from(1i32);
 							block_on(worker.submit(new_seal.encode()));
