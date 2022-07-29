@@ -12,20 +12,25 @@ use sp_core::{
 	crypto::{Ss58Codec, UncheckedFrom},
 	Decode, Encode, Pair, H256, U256,
 };
-use sp_runtime::generic::BlockId;
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{sync::Arc, thread, time::Duration};
 use trex_constants::{INIT_DIFFICULTY, MINING_WORKER_BUILD_TIME, MINING_WORKER_TIMEOUT};
 #[cfg(feature = "min-algo")]
 use trex_pow::MinTREXAlgo;
 #[cfg(not(feature = "min-algo"))]
 use trex_pow::TREXAlgo;
-use trex_pow::{genesis, Compute, Seal};
+use trex_pow::{genesis, Compute, Seal,parallel_mining};
 use trex_runtime::{self, opaque::Block, RuntimeApi};
 
 use crate::mining::generate_mining_seed;
 use log::{info, warn};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 use std::{path::PathBuf, str::FromStr};
+use std::sync::{
+	atomic::{AtomicBool},
+};
+use async_trait::async_trait;
+use trex_pow::parallel_mining::ParallelBlockImport;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -94,10 +99,46 @@ type FullClient =
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
+
+pub struct CreateInherentDataProviders;
+
+#[async_trait]
+impl sp_inherents::CreateInherentDataProviders<Block, ()> for CreateInherentDataProviders {
+	type InherentDataProviders = sp_timestamp::InherentDataProvider;
+
+	async fn create_inherent_data_providers(
+		&self,
+		_parent: <Block as BlockT>::Hash,
+		_extra_args: (),
+	) -> Result<Self::InherentDataProviders, Box<dyn std::error::Error + Send + Sync>> {
+		Ok(sp_timestamp::InherentDataProvider::from_system_time())
+	}
+}
+
 #[cfg(feature = "min-algo")]
 type PowAlgo = MinTREXAlgo;
 #[cfg(not(feature = "min-algo"))]
 type PowAlgo = TREXAlgo<FullClient>;
+
+type PowBlockImport = sc_consensus_pow::PowBlockImport<
+	Block,
+	ParallelBlockImport<
+		Block,
+		Arc<FullClient>,
+		FullClient,
+	>,
+	FullClient,
+	FullSelectChain,
+	PowAlgo,
+	sp_consensus::CanAuthorWithNativeVersion<
+		sc_service::LocalCallExecutor<
+			Block,
+			sc_client_db::Backend<Block>,
+			NativeElseWasmExecutor<ExecutorDispatch>,
+		>,
+	>,
+	CreateInherentDataProviders,
+>;
 
 /// Returns most parts of a service. Not enough to run a full chain,
 /// But enough to perform chain operations like purge-chain
@@ -112,15 +153,7 @@ pub fn new_partial(
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
-			sc_consensus_pow::PowBlockImport<
-				Block,
-				Arc<FullClient>,
-				FullClient,
-				FullSelectChain,
-				PowAlgo,
-				impl sp_consensus::CanAuthorWith<Block>,
-				impl sp_inherents::CreateInherentDataProviders<Block, ()>,
-			>,
+			PowBlockImport,
 			Option<Telemetry>,
 			PowAlgo,
 		),
@@ -175,17 +208,21 @@ pub fn new_partial(
 	#[cfg(not(feature = "min-algo"))]
 	let algorithm = trex_pow::TREXAlgo::new(client.clone());
 
+	let found = Arc::new(AtomicBool::new(false));
+
+	let parallel_block_import = parallel_mining::ParallelBlockImport::new(
+		client.clone(),
+		client.clone(),
+		found.clone()
+	);
+
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
-		Arc::clone(&client),
+		parallel_block_import,
 		Arc::clone(&client),
 		algorithm.clone(),
 		0, // check inherent starting at block 0
 		select_chain.clone(),
-		|_parent, ()| async {
-			let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-			// let trex_data = trex_inherent::InherentDataProvider::from_default_value();
-			Ok(timestamp)
-		},
+		CreateInherentDataProviders,
 		can_author_with,
 	);
 

@@ -23,8 +23,10 @@ log = '0.4.8'
 rand = { version = "0.7.2", features = ["small_rng"] }
 clap = { version = "3.0", features = ["derive"] }
 serde_json = "1.0.74"
+async-trait = "0.1.42"
 
 # substrate client package
+sc-client-db = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
 sc-cli = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24", features = ["wasmtime"] }
 sc-executor = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24", features = ["wasmtime"] }
 sc-service = { version = "0.10.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24", features = ["wasmtime"] }

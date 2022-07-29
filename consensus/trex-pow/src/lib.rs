@@ -4,6 +4,7 @@ pub mod genesis;
 pub mod hash;
 mod keychain;
 pub mod utils;
+pub mod parallel_mining;
 
 use codec::{Decode, Encode};
 use elgamal_trex::{
