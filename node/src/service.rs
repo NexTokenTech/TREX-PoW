@@ -20,7 +20,7 @@ use trex_pow::MinTREXAlgo;
 #[cfg(not(feature = "min-algo"))]
 use trex_pow::TREXAlgo;
 use trex_pow::{genesis, Compute, Seal,parallel_mining};
-use trex_runtime::{self, opaque::Block, RuntimeApi};
+use trex_runtime::{self, BlockNumber, opaque::Block, RuntimeApi};
 
 use crate::mining::generate_mining_seed;
 use log::{info, warn};
@@ -120,6 +120,7 @@ type PowAlgo = MinTREXAlgo;
 #[cfg(not(feature = "min-algo"))]
 type PowAlgo = TREXAlgo<FullClient>;
 
+// TODO: try to use impl for parallel block
 type PowBlockImport = sc_consensus_pow::PowBlockImport<
 	Block,
 	ParallelBlockImport<
@@ -209,14 +210,17 @@ pub fn new_partial(
 	#[cfg(not(feature = "min-algo"))]
 	let algorithm = trex_pow::TREXAlgo::new(client.clone());
 
+	// Initialize an AtomicBool Arc pointer.
 	let found = Arc::new(AtomicBool::new(false));
 
+	// Initialize pow_block_import middleware parallel_block_import.
 	let parallel_block_import = parallel_mining::ParallelBlockImport::new(
 		client.clone(),
 		client.clone(),
 		found.clone()
 	);
 
+	// Replace the middleware parallel_block_import with the previous client Arc pointer.
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
 		parallel_block_import,
 		Arc::clone(&client),
@@ -366,6 +370,8 @@ pub fn new_full(
 				};
 				// WARNING: do not use 0 as initial seed.
 				let mut mining_seed = generate_mining_seed(node_key).unwrap_or(U256::from(1i32));
+				// Store a variable that records the block best hash for later comparison
+				let mut old_best_hash = worker.clone().best_hash();
 				loop {
 					let worker = Arc::clone(&worker);
 					let metadata = worker.metadata();
@@ -377,16 +383,26 @@ pub fn new_full(
 							pre_hash: metadata.pre_hash,
 							nonce: U256::from(0i32),
 						};
-
-						found.store(false, Ordering::Relaxed);
-						if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed, found.clone()) {
-							// Found a new seal, reset the mining seed.
-							mining_seed = U256::from(1i32);
-							block_on(worker.submit(new_seal.encode()));
-						} else {
-							mining_seed = mining_seed.saturating_add(U256::from(1i32));
-							if mining_seed == U256::MAX {
-								mining_seed = U256::from(0i32);
+						// If failed to compare hash, sleep for one second
+						let current_best_hash = metadata.best_hash;
+						// dbg!("{:?}  {:?}",&old_best_hash,current_best_hash);
+						// If old_best_hash and current_best_hash are equal, it means you need to rest for one second, otherwise continue try_cpu_mining.
+						if old_best_hash != None && current_best_hash == old_best_hash.unwrap() {
+							thread::sleep(Duration::new(1, 0));
+						}else{
+							// Assign the value of current_best_hash to old_hash to keep them consistent.
+							old_best_hash = Some(current_best_hash.clone());
+							// Reset the value pointed to by the AtomicBool pointer
+							found.store(false, Ordering::Relaxed);
+							if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed, found.clone()) {
+								// Found a new seal, reset the mining seed.
+								mining_seed = U256::from(1i32);
+								block_on(worker.submit(new_seal.encode()));
+							} else {
+								mining_seed = mining_seed.saturating_add(U256::from(1i32));
+								if mining_seed == U256::MAX {
+									mining_seed = U256::from(0i32);
+								}
 							}
 						}
 					} else {

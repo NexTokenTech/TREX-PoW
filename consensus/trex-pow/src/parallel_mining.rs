@@ -80,8 +80,7 @@ impl<B, I, C> BlockImport<B> for ParallelBlockImport<B, I, C>
         new_cache: HashMap<CacheKeyId, Vec<u8>>,
     ) -> Result<ImportResult, Self::Error> {
 
-        //Processing logic after imported a new block
-        dbg!("!!!!!!!!!!!!!!!!!!!!!!!!before imported block");
+        // Change the value pointed to by the AtomicBool pointer to true.
         self.found.store(true, Ordering::Relaxed);
         self.inner
             .import_block(block, new_cache)
