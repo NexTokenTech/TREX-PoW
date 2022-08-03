@@ -12,6 +12,7 @@ use std::sync::{
 };
 
 /// Block import for weak subjectivity. It must be combined with a PoW block import.
+/// This struct is used for parallel mining and importing blocks from peer miners.
 pub struct ParallelBlockImport<B: BlockT, I, C> {
     inner: I,
     client: Arc<C>,
@@ -55,6 +56,7 @@ impl<B, I, C> ParallelBlockImport<B, I, C>
     }
 }
 
+#[allow(unused_mut)]
 #[async_trait::async_trait]
 impl<B, I, C> BlockImport<B> for ParallelBlockImport<B, I, C>
     where

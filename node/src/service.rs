@@ -120,7 +120,6 @@ type PowAlgo = MinTREXAlgo;
 #[cfg(not(feature = "min-algo"))]
 type PowAlgo = TREXAlgo<FullClient>;
 
-// TODO: try to use impl for parallel block
 type PowBlockImport = sc_consensus_pow::PowBlockImport<
 	Block,
 	ParallelBlockImport<
