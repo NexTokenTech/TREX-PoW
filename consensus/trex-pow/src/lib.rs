@@ -4,6 +4,7 @@ pub mod genesis;
 pub mod hash;
 mod keychain;
 pub mod utils;
+pub mod parallel_mining;
 
 use codec::{Decode, Encode};
 use elgamal_trex::{
@@ -29,6 +30,9 @@ use algorithm::PollardRhoHash;
 pub use hash::Blake3Compute as Compute;
 use keychain::{yield_pub_keys, RawKeySeeds};
 use utils::{bigint_u256, gen_bigint_range, u256_bigint};
+use std::sync::{
+	atomic::{AtomicBool},
+};
 
 pub mod app {
 	use sp_application_crypto::{app_crypto, sr25519};
@@ -62,6 +66,7 @@ impl Seal {
 		&self,
 		compute: &mut C,
 		mining_seed: U256,
+		found:Arc<AtomicBool>
 	) -> Option<Self> {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
@@ -72,9 +77,10 @@ impl Seal {
 			new_seeds[idx] = bigint_u256(&key.yield_seed());
 		}
 		let puzzle = new_pubkey.clone();
-		if let Some(solutions) = puzzle.solve(compute, u256_bigint(&mining_seed))
+		if let Some(solutions) = puzzle.solve_parallel(compute, u256_bigint(&mining_seed), 10000, found.clone())
 		{
 			// if find the solutions, build a new seal.
+			info!("🌩 find the solutions, build a new seal");
 			Some(Seal {
 				difficulty,
 				pubkey: new_pubkey.to_raw(),
@@ -83,6 +89,8 @@ impl Seal {
 				nonce: compute.get_nonce(),
 			})
 		} else {
+			// found.store(false, Ordering::Relaxed);
+			info!("❌ don't find the solutions, return none");
 			None
 		}
 	}
