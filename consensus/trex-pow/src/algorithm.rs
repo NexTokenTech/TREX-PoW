@@ -143,6 +143,7 @@ impl PollardRhoHash for PublicKey {
 			}
 			// check if found the correct solution
 			if &state_1.work == &state_2.work {
+				// TODO: poll found status
 				if &state_1.solution != &state_2.solution {
 					// found the correct solution, notify other workers.
 					flag.store(true, Ordering::Relaxed);

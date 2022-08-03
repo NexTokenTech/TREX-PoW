@@ -348,34 +348,36 @@ pub fn new_full(
 			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
-				let find_seal = || -> Option<Seal> {
+				let find_seal = || -> (Option<Seal>,BlockNumber) {
 					let chain_info = blockchain.info();
 					let best_hash = chain_info.best_hash;
 					let best_num = chain_info.best_number;
 					// info!("Current best block number: {}", best_num);
 					if best_num == 0 {
 						// genesis block does not have a a header, need to create a artificial seal.
-						return Some(genesis::genesis_seal(INIT_DIFFICULTY))
+						return (Some(genesis::genesis_seal(INIT_DIFFICULTY)),best_num)
 					}
 					if let Some(header) = blockchain.header(BlockId::Hash(best_hash)).unwrap() {
 						let mut digest = header.digest;
 						while let Some(item) = digest.pop() {
 							if let Some(raw_seal) = item.as_seal() {
 								let mut coded_seal = raw_seal.1;
-								return Some(Seal::decode(&mut coded_seal).unwrap())
+								return (Some(Seal::decode(&mut coded_seal).unwrap()),best_num)
 							}
 						}
 					}
-					None
+					(None,best_num)
 				};
 				// WARNING: do not use 0 as initial seed.
 				let mut mining_seed = generate_mining_seed(node_key).unwrap_or(U256::from(1i32));
-				// Store a variable that records the block best hash for later comparison
-				let mut old_best_hash = worker.clone().best_hash();
+				// Store a variable that records the block best number for later comparison
+				let mut mining_number = 0u32;
 				loop {
 					let worker = Arc::clone(&worker);
 					let metadata = worker.metadata();
-					let seal = find_seal();
+					let seal_number_tuple = find_seal();
+					let seal = &seal_number_tuple.0;
+					let current_number = &seal_number_tuple.1;
 					if let (Some(metadata), Some(seal)) = (metadata, seal) {
 						// dbg!("Found seal!");
 						let mut compute = Compute {
@@ -384,14 +386,13 @@ pub fn new_full(
 							nonce: U256::from(0i32),
 						};
 						// If failed to compare hash, sleep for one second
-						let current_best_hash = metadata.best_hash;
-						// dbg!("{:?}  {:?}",&old_best_hash,current_best_hash);
-						// If old_best_hash and current_best_hash are equal, it means you need to rest for one second, otherwise continue try_cpu_mining.
-						if old_best_hash != None && current_best_hash == old_best_hash.unwrap() {
+						// dbg!("{:?}  {:?}",&mining_number,&current_number);
+						// If mining_number and current_number are equal, it means you need to rest for one second, otherwise continue try_cpu_mining.
+						if mining_number != 0 && mining_number == current_number.to_owned(){
 							thread::sleep(Duration::new(1, 0));
 						}else{
-							// Assign the value of current_best_hash to old_hash to keep them consistent.
-							old_best_hash = Some(current_best_hash.clone());
+							// Assign the value of current_number to mining_number to keep them consistent.
+							mining_number = current_number.clone();
 							// Reset the value pointed to by the AtomicBool pointer
 							found.store(false, Ordering::Relaxed);
 							if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed, found.clone()) {

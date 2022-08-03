@@ -77,7 +77,7 @@ impl Seal {
 			new_seeds[idx] = bigint_u256(&key.yield_seed());
 		}
 		let puzzle = new_pubkey.clone();
-		if let Some(solutions) = puzzle.solve_parallel(compute, u256_bigint(&mining_seed), 10000, found.clone())
+		if let Some(solutions) = puzzle.solve_parallel(compute, u256_bigint(&mining_seed), 300, found.clone())
 		{
 			// if find the solutions, build a new seal.
 			info!("🌩 find the solutions, build a new seal");
