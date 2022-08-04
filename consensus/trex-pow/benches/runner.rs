@@ -14,28 +14,21 @@ fn get_local_seed() -> Integer {
 }
 
 pub fn run_pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compute: &mut C) {
-	let mut loop_count = 0;
-	let limit = 10;
-	let mut seed = get_local_seed();
+	let seed = get_local_seed();
 	let puzzle = pubkey.clone();
-	loop {
-		if let Some(solutions) = puzzle.solve(compute, seed.clone()) {
-			let verifier = SolutionVerifier { pubkey: pubkey.clone() };
-			if let Some(key) = verifier.key_gen(&solutions) {
-				let validate = Integer::from(
-					verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-				);
-				assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
-				return
-			} else {
-				panic!("Failed to derive private key!")
-			}
-		} else if loop_count < limit {
-			loop_count += 1;
-			seed += 1;
+	if let Some(solutions) = puzzle.solve(compute, seed.clone()) {
+		let verifier = SolutionVerifier { pubkey: pubkey.clone() };
+		if let Some(key) = verifier.key_gen(&solutions) {
+			let validate = Integer::from(
+				verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
+			);
+			assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
+			return
 		} else {
-			panic!("Cannot find private key!")
+			panic!("Failed to derive private key!")
 		}
+	} else {
+		panic!("Cannot find private key!")
 	}
 }
 

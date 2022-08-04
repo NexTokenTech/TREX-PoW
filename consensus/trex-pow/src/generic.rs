@@ -29,10 +29,17 @@ pub struct State<I> {
 	pub pubkey: PublicKey,
 }
 
+/// Methods related to hashing and nonce updating in block headers.
 pub trait Hash<I, E: Encode> {
 	fn set_nonce(&mut self, int: &I);
 	fn get_nonce(&self) -> E;
 	fn hash_integer(&self) -> I;
+}
+
+/// Methods to generate distinguish points from the pollard rho state.
+pub trait StateHash<I, E:Encode> {
+	/// generate a special hash from solution and nonce for distinguish current solution.
+	fn hash_encode(&self) -> E;
 }
 
 /// Mapping nodes in the DAG generated in Pollard Rho method.

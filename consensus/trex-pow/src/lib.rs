@@ -370,7 +370,7 @@ mod tests {
 
 	#[test]
 	fn try_pollard_rho_with_key_gen() {
-		let difficulty = 39;
+		let difficulty = 34;
 		let pubkey = get_test_pubkey(difficulty);
 		let mut loop_count = 0;
 		let limit = 10;
@@ -406,7 +406,7 @@ mod tests {
 		let mut threads = Vec::new();
 		let cpu_n = 4;
 		let found = Arc::new(AtomicBool::new(false));
-		let difficulty = 39;
+		let difficulty = 41;
 		for i in 0..cpu_n {
 			let flag = found.clone();
 			threads.push(thread::spawn(move || {

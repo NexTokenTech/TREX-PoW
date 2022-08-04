@@ -12,21 +12,22 @@ use trex_constants::Difficulty;
 use trex_pow::hash::Blake3Compute;
 use std::sync::{Arc, atomic::AtomicBool};
 use std::thread;
+use elgamal_trex::{KeyGenerator, RawKey};
+use rug::rand::RandState;
 
 // Number of CPU cores in parallel benchmarking.
 const N_CPU: i32 = 4;
 
 /// helper function to get a preset pubkey.
 fn get_preset_pubkey(diff: u32) -> PublicKey{
-	let p = Integer::from(2718559583u32);
-	let g = Integer::from(904155462u32);
-	let h = Integer::from(2274348566u32);
-	PublicKey {
-		p,
-		g,
-		h,
-		bit_length: diff,
-	}
+	// generate a random public key.
+	let p = Integer::from(1);
+	let g = Integer::from(1);
+	let h = Integer::from(1);
+	let old_pubkey = PublicKey { p, g, h, bit_length: diff };
+	let mut rand = RandState::new_mersenne_twister();
+	let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand, diff);
+	PublicKey::from_raw(raw_pubkey)
 }
 
 /// helper function to get a dummy data block for sha256 hashing.

@@ -1,5 +1,5 @@
 use crate::generic::{
-	CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, Solutions, State,
+	CycleFinding, Hash, StateHash, MapResult, Mapping, MappingError, Solution, Solutions, State,
 };
 use elgamal_trex::elgamal::PublicKey;
 use rug::{Complete, Integer};
@@ -106,6 +106,27 @@ impl PollardRhoHash for PublicKey {
 			state_2 = state_2.transit(&mut compute_2).unwrap().transit(&mut compute_2).unwrap();
 			if &state_1.work == &state_2.work {
 				if &state_1.solution != &state_2.solution {
+					// find the solution, then need to find the nonce.
+					break;
+				}
+				return None
+			}
+			i += 1;
+		}
+		// extra nonce condition against parallel computing on clusters.
+		i = Integer::ZERO;
+		let shift = self.bit_length / 2;
+		let hash_diff = U256::one()<<shift;
+		while &i < &n {
+			// keep rolling the dices until nonce meet the condition.
+			// There are (difficulty / 2 - 1) zeros on the nonce.
+			state_1 = state_1.transit(compute).unwrap();
+			state_2 = state_2.transit(&mut compute_2).unwrap();
+			let (_, overflowed_1) = state_1.hash_encode().overflowing_mul(hash_diff);
+			let (_, overflowed_2) = state_2.hash_encode().overflowing_mul(hash_diff);
+			if !overflowed_1 || !overflowed_2 {
+				// find the nonce with a number of leading zero bits.
+				if &state_1.work == &state_2.work && &state_1.solution != &state_2.solution {
 					return Some((state_1.solution, state_2.solution))
 				}
 				return None

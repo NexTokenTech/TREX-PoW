@@ -11,9 +11,11 @@ pub fn gen_bigint_range(rand: &mut RandState, start: &Integer, stop: &Integer) -
 }
 
 /// Convert big integer to H256 type.
-#[allow(dead_code)]
 pub fn bigint_h256(int: &Integer) -> H256 {
-	let slice: Vec<u8> = int.to_digits(Order::Lsf);
+	let mut slice: Vec<u8> = int.to_digits(Order::Lsf);
+	for _ in slice.len()..32{
+		slice.push(0u8);
+	}
 	H256::from_slice(&slice)
 }
 
