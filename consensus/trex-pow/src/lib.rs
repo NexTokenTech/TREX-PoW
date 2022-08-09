@@ -3,8 +3,8 @@ pub mod generic;
 pub mod genesis;
 pub mod hash;
 mod keychain;
-pub mod parallel_mining;
 pub mod utils;
+pub mod distributed;
 
 use codec::{Decode, Encode};
 use elgamal_trex::{
@@ -31,14 +31,17 @@ use crate::utils::bigint_u128;
 use algorithm::PollardRhoHash;
 pub use hash::Blake3Compute as Compute;
 use keychain::{yield_pub_keys, RawKeySeeds};
-use std::sync::atomic::AtomicBool;
 use utils::{bigint_u256, gen_bigint_range, u256_bigint};
+use std::sync::{
+	atomic::{AtomicBool},
+};
+use crate::generic::StateHash;
 
 pub mod app {
 	use sp_application_crypto::{app_crypto, sr25519};
 	use sp_core::crypto::KeyTypeId;
 
-	pub const ID: KeyTypeId = KeyTypeId(*b"caps");
+	pub const ID: KeyTypeId = KeyTypeId(*b"trex");
 	app_crypto!(sr25519, ID);
 }
 
@@ -81,8 +84,7 @@ impl Seal {
 			}
 		}
 		let puzzle = new_pubkey.clone();
-		if let Some(solutions) =
-			puzzle.solve_parallel(compute, u256_bigint(&mining_seed), 10000, found.clone())
+		if let Some(solutions) = puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
 		{
 			// if find the solutions, build a new seal.
 			info!("🌩 find the solutions, build a new seal");
@@ -187,7 +189,30 @@ impl SolutionVerifier {
 		let nonce = u256_bigint(&header.nonce);
 		let state = State::<Integer>::from_pub_key(self.pubkey.clone(), Integer::from(1));
 		let work = state.func_f(&hash_i, &nonce).unwrap();
-		y_1 == work
+		if y_1 != work {
+			warn!("The solution is not valid, cannot pass header hash verification!");
+			return false
+		}
+		let state_1 = State::<Integer> {
+			solution: solutions.0.clone(),
+			nonce: nonce.clone(),
+			work: work.clone(),
+			pubkey: self.pubkey.clone(),
+		};
+		let state_2 = State::<Integer> {
+			solution: solutions.1.clone(),
+			nonce,
+			work,
+			pubkey: self.pubkey.clone(),
+		};
+		let hash_diff = self.pubkey.hash_diff();
+		let (_, overflowed_1) = state_1.hash_encode().overflowing_mul(hash_diff);
+		let (_, overflowed_2) = state_2.hash_encode().overflowing_mul(hash_diff);
+		if overflowed_1 && overflowed_2 {
+			warn!("The solution is not valid, cannot pass distinguished point verification!");
+			return false
+		}
+		true
 	}
 
 	pub fn key_gen(&self, solutions: &Solutions<Integer>) -> Option<PrivateKey> {
@@ -402,11 +427,11 @@ mod tests {
 	}
 
 	#[test]
-	fn try_pollard_rho_parallel() {
+	fn try_pollard_rho_distributed(){
 		let mut threads = Vec::new();
 		let cpu_n = 4;
 		let found = Arc::new(AtomicBool::new(false));
-		let difficulty = 41;
+		let difficulty = 38;
 		for i in 0..cpu_n {
 			let flag = found.clone();
 			threads.push(thread::spawn(move || {
@@ -414,7 +439,7 @@ mod tests {
 				let pubkey = get_test_pubkey(difficulty);
 				let puzzle = pubkey.clone();
 				let mut compute = get_test_header(difficulty);
-				if let Some(solutions) = puzzle.solve_parallel(&mut compute, seed, 10000, flag) {
+				if let Some(solutions) = puzzle.solve_dist(&mut compute, seed, 10000, flag) {
 					let verifier = SolutionVerifier { pubkey: pubkey.clone() };
 					if let Some(key) = verifier.key_gen(&solutions) {
 						let validate = Integer::from(

@@ -5,34 +5,25 @@ Here are the statistics of blake3 and sha256 with CPU mining difficulty from 32 
 The benchmark is running on an Intel 11 gen i9 processor with macOS.
 
 ```sh
-Benchmarking pollard test:/pollard rho difficulty for 32 use blake3: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 32 use blake3                        
-time:   [216.06 ms 218.59 ms 220.51 ms]
+pollard_rho_hash/pollard_rho_diff_32_blake3     time:   [409.50 ms 420.96 ms 436.06 ms]
+pollard_rho_hash/pollard_rho_diff_32_sha256     time:   [493.55 ms 527.72 ms 559.01 ms]
+pollard_rho_hash/pollard_rho_diff_33_blake3     time:   [512.26 ms 586.64 ms 678.48 ms]
+pollard_rho_hash/pollard_rho_diff_33_sha256     time:   [702.96 ms 776.87 ms 842.88 ms]
+pollard_rho_hash/pollard_rho_diff_34_blake3     time:   [670.50 ms 719.43 ms 783.99 ms]
+pollard_rho_hash/pollard_rho_diff_34_sha256     time:   [999.77 ms 1.1006 s 1.2343 s]
 
-Benchmarking pollard test:/pollard rho difficulty for 32 use sha256: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 32 use sha256                        
-time:   [334.20 ms 346.49 ms 367.76 ms]
 
-Benchmarking pollard test:/pollard rho difficulty for 33 use blake3: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 33 use blake3                        
-time:   [309.94 ms 342.14 ms 380.23 ms]
-
-Benchmarking pollard test:/pollard rho difficulty for 33 use sha256: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 33 use sha256                        
-time:   [395.40 ms 404.44 ms 411.99 ms]
-
-Benchmarking pollard test:/pollard rho difficulty for 34 use blake3: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 34 use blake3                        
-time:   [372.96 ms 384.68 ms 398.64 ms]
-
-Benchmarking pollard test:/pollard rho difficulty for 34 use sha256: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 34 use sha256                        
-time:   [475.34 ms 497.87 ms 526.84 ms]
 ```
 
-## Boost from parallel computing
-The benchmark on parallel computing shows a boost with square root of the number of CPU cores in use.
-The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (4 cores in use, 
+## Boost from distributed computing
+The benchmark on distributed computing shows a boost with square root of the number of CPU cores in use.
+The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (2-4 cores in use, 
 theoretically 2X speed, actually 1.56X speed).
-The mining difficulty for benchmarking is 39 bit-length.
+The mining difficulty for benchmarking is 38 bit-length.
 
 ```sh
-pollard_rho_parallel/pollard_rho_diff_39_base 
-time:   [321.72 ms 334.85 ms 348.50 ms]
-pollard_rho_parallel/pollard_rho_diff_39_parallel 
-time:   [209.65 ms 214.43 ms 220.10 ms]
+pollard_rho_distributed/pollard_rho_diff_38_base        1 CPUs    time:   [3.2874 s 3.6982 s 3.9335 s]
+pollard_rho_distributed/pollard_rho_diff_38_distributed 2 CPUs    time:   [2.4716 s 2.5862 s 2.6777 s]
+pollard_rho_distributed/pollard_rho_diff_38_distributed 3 CPUs    time:   [2.3070 s 2.4986 s 2.6445 s]
+pollard_rho_distributed/pollard_rho_diff_38_distributed 4 CPUs    time:   [2.0685 s 2.2158 s 2.3725 s]
 ```

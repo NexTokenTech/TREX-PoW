@@ -80,14 +80,16 @@ pub trait PollardRhoHash {
 		compute: &mut C,
 		seed: Integer,
 	) -> Option<Solutions<Integer>>;
-	/// This method solve the puzzle with parallel computing.
-	fn solve_parallel<C: Clone + Hash<Integer, U256>>(
+	/// This method solve the puzzle with distributed computing.
+	fn solve_dist<C: Clone + Hash<Integer, U256>>(
 		&self,
 		compute: &mut C,
 		seed: Integer,
 		grain_size: u32,
 		flag: Arc<AtomicBool>,
 	) -> Option<Solutions<Integer>>;
+	/// This method generate hash tester based on current difficulty.
+	fn hash_diff(&self) -> U256;
 }
 
 impl PollardRhoHash for PublicKey {
@@ -113,18 +115,21 @@ impl PollardRhoHash for PublicKey {
 			}
 			i += 1;
 		}
-		// extra nonce condition against parallel computing on clusters.
+		// extra nonce condition against distributed computing on clusters.
 		i = Integer::ZERO;
-		let shift = self.bit_length / 2;
-		let hash_diff = U256::one()<<shift;
+		let hash_diff = self.hash_diff();
 		while &i < &n {
 			// keep rolling the dices until nonce meet the condition.
-			// There are (difficulty / 2 - 1) zeros on the nonce.
+			// There are difficulty / 2 zeros on the nonce.
 			state_1 = state_1.transit(compute).unwrap();
 			state_2 = state_2.transit(&mut compute_2).unwrap();
 			let (_, overflowed_1) = state_1.hash_encode().overflowing_mul(hash_diff);
 			let (_, overflowed_2) = state_2.hash_encode().overflowing_mul(hash_diff);
 			if !overflowed_1 || !overflowed_2 {
+				// if the second compute block meets the condition, swap the compute.
+				if !overflowed_2 {
+					*compute = compute_2;
+				}
 				// find the nonce with a number of leading zero bits.
 				if &state_1.work == &state_2.work && &state_1.solution != &state_2.solution {
 					return Some((state_1.solution, state_2.solution))
@@ -135,7 +140,7 @@ impl PollardRhoHash for PublicKey {
 		}
 		None
 	}
-	fn solve_parallel<C: Clone + Hash<Integer, U256>>(
+	fn solve_dist<C: Clone + Hash<Integer, U256>>(
 		&self,
 		compute: &mut C,
 		seed: Integer,
@@ -164,12 +169,47 @@ impl PollardRhoHash for PublicKey {
 			}
 			// check if found the correct solution
 			if &state_1.work == &state_2.work {
-				// poll found status, if found, cancel and return none.
+				if &state_1.solution != &state_2.solution {
+					// go to next step to meet extra nonce conditions.
+					break;
+				}
+				return None
+			}
+			i += 1;
+			counter += 1;
+		}
+		// extra nonce condition against distributed computing on clusters.
+		i = Integer::ZERO;
+		counter = 0;
+		let hash_diff =  self.hash_diff();
+		while &i < &n {
+			// keep rolling the dices until nonce meet the condition.
+			// There are difficulty / 2 zeros on the nonce.
+			state_1 = state_1.transit(compute).unwrap();
+			state_2 = state_2.transit(&mut compute_2).unwrap();
+			let (_, overflowed_1) = state_1.hash_encode().overflowing_mul(hash_diff);
+			let (_, overflowed_2) = state_2.hash_encode().overflowing_mul(hash_diff);
+			// check if need to check status of other workers
+			if counter >= grain_size {
+				let found = flag.load(Ordering::Relaxed);
+				if found {
+					// if other work found the solution, drop current work.
+					return None
+				}
+				counter = 0;
+			}
+			if !overflowed_1 || !overflowed_2 {
+				// if the second compute block meets the condition, swap the compute.
+				if !overflowed_2 {
+					*compute = compute_2;
+				}
+				// poll found status, if peer nodes found the result, cancel and return none.
 				let found = flag.load(Ordering::Relaxed);
 				if found {
 					return None
 				}
-				if &state_1.solution != &state_2.solution {
+				// find the nonce with a number of leading zero bits.
+				if &state_1.work == &state_2.work && &state_1.solution != &state_2.solution {
 					// found the correct solution, notify other workers.
 					flag.store(true, Ordering::Relaxed);
 					return Some((state_1.solution, state_2.solution))
@@ -180,5 +220,13 @@ impl PollardRhoHash for PublicKey {
 			counter += 1;
 		}
 		None
+	}
+	fn hash_diff(&self) -> U256{
+		let shift = self.bit_length / 2;
+		if self.bit_length % 2 != 0 {
+			(U256::one()<<shift) + (U256::one()<<(shift-1))
+		} else {
+			U256::one() << shift
+		}
 	}
 }

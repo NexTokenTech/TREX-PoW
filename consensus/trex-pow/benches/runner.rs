@@ -1,10 +1,12 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use elgamal_trex::elgamal::PublicKey;
 use rand::{self, Rng};
 use rug::Integer;
 use sp_core::U256;
-use trex_pow::{generic::Hash, algorithm::PollardRhoHash, SolutionVerifier};
+use std::sync::{
+	atomic::{AtomicBool, Ordering},
+	Arc,
+};
+use trex_pow::{algorithm::PollardRhoHash, generic::Hash, SolutionVerifier};
 
 /// Get thread local seed (0 - 1000) for running algorithm.
 fn get_local_seed() -> Integer {
@@ -19,9 +21,8 @@ pub fn run_pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compu
 	if let Some(solutions) = puzzle.solve(compute, seed.clone()) {
 		let verifier = SolutionVerifier { pubkey: pubkey.clone() };
 		if let Some(key) = verifier.key_gen(&solutions) {
-			let validate = Integer::from(
-				verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-			);
+			let validate =
+				Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
 			assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
 			return
 		} else {
@@ -32,16 +33,20 @@ pub fn run_pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compu
 	}
 }
 
-pub fn run_pollard_rho_parallel<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compute: &mut C, flag: Arc<AtomicBool>) {
+/// Test Pollard Rho with distributed distributed algorithm.
+pub fn run_pollard_rho_distributed<C: Clone + Hash<Integer, U256>>(
+	pubkey: &PublicKey,
+	compute: &mut C,
+	flag: Arc<AtomicBool>,
+) {
 	let seed = get_local_seed();
 	let puzzle = pubkey.clone();
 	let grain_size = 10000;
-	if let Some(solutions) = puzzle.solve_parallel(compute, seed.clone(), grain_size, flag.clone()) {
+	if let Some(solutions) = puzzle.solve_dist(compute, seed.clone(), grain_size, flag.clone()) {
 		let verifier = SolutionVerifier { pubkey: pubkey.clone() };
 		if let Some(key) = verifier.key_gen(&solutions) {
-			let validate = Integer::from(
-				verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-			);
+			let validate =
+				Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
 			assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
 			return
 		} else {

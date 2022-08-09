@@ -21,7 +21,7 @@
 
 # ===== START FIRST STAGE ======
 FROM phusion/baseimage:jammy-1.0.0 as builder
-LABEL maintainer="team@capsule.ink"
+LABEL maintainer="team@trex.ink"
 LABEL description="trex builder."
 
 ARG PROFILE=release
@@ -49,7 +49,7 @@ RUN cd /rustbuilder/trex && RUSTC_BOOTSTRAP=1 cargo +nightly build --$PROFILE --
 
 # ===== START SECOND STAGE ======
 FROM phusion/baseimage:jammy-1.0.0
-LABEL maintainer="team@capsule.ink"
+LABEL maintainer="team@trex.ink"
 LABEL description="trex binary."
 ARG PROFILE=release
 COPY --from=builder /rustbuilder/trex/target/$PROFILE/trex-node /usr/local/bin
