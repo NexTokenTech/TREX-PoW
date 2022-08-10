@@ -14,6 +14,10 @@ pub struct Cli {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
+	/// Key management cli utilities
+	#[clap(subcommand)]
+	Key(sc_cli::KeySubcommand),
+
 	/// Build a chain specification.
 	BuildSpec(sc_cli::BuildSpecCmd),
 
@@ -34,6 +38,10 @@ pub enum Subcommand {
 
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
+
+	/// Sub-commands concerned with benchmarking.
+	#[clap(subcommand)]
+	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
 	/// Try some command against runtime state.
 	#[cfg(feature = "try-runtime")]
