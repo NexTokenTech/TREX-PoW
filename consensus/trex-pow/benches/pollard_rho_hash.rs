@@ -54,7 +54,7 @@ fn pollard_rho_distributed_bench(c: &mut Criterion) {
 	group
 		.significance_level(0.1)
 		.sample_size(10)
-		.measurement_time(Duration::from_secs(360));
+		.measurement_time(Duration::from_secs(240));
 
 	group.bench_function("pollard_rho_diff_38_distributed", |b|{
 		let difficulty = 38u32;
@@ -96,7 +96,7 @@ fn pollard_rho_hash_bench(c: &mut Criterion) {
 		.sample_size(10)
 		.measurement_time(Duration::from_secs(120));
 
-	for i in 32..35 {
+	for i in 34..37 {
 		let func_id = format!("pollard_rho_diff_{i}_blake3");
 		group.bench_function(func_id, |b| {
 			let difficulty = i;
@@ -106,7 +106,7 @@ fn pollard_rho_hash_bench(c: &mut Criterion) {
 		});
 	}
 
-	for i in 32..35 {
+	for i in 34..37 {
 		let func_id = format!("pollard_rho_diff_{i}_sha256");
 		group.bench_function(func_id, |b| {
 			let difficulty = i;

@@ -34,7 +34,7 @@ impl Hash<Integer, U256> for Blake3Compute {
 
 impl StateHash<Integer, U256> for State<Integer> {
     fn hash_encode(&self) -> U256 {
-        let total = self.nonce.clone() + self.work.clone() + self.solution.a.clone() + self.solution.b.clone();
+        let total: Integer = self.nonce.clone()/5 + self.work.clone()/5 + self.pubkey.p.clone()/5 + self.pubkey.g.clone()/5 + self.pubkey.h.clone()/5;
         let new_hash = blake3::hash(&total.to_digits(Order::Lsf));
         U256::from_little_endian(new_hash.as_bytes())
     }

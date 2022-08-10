@@ -1,13 +1,26 @@
+use std::collections::HashMap;
 use crate::generic::{
-	CycleFinding, Hash, StateHash, MapResult, Mapping, MappingError, Solution, Solutions, State,
+	CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, Solutions, State, StateHash,
 };
 use elgamal_trex::elgamal::PublicKey;
 use rug::{Complete, Integer};
 use sp_core::U256;
-use std::sync::{
-	atomic::{AtomicBool, Ordering},
-	Arc,
-};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc, RwLock, Mutex};
+use std::thread;
+use rand::{self, Rng};
+
+/// This factor is to reduce the length of trails between distinguished point so that the search
+/// is more efficient.
+/// The expected length = sqrt(p) / 2^POINT_DST_FACTOR
+const POINT_DST_FACTOR: u32 = 8;
+const SEARCH_LEN_FACTOR: u32 = 8;
+
+/// Get thread local seed (0 - 1000) for running algorithm.
+pub fn get_local_seed() -> Integer {
+	let mut rng = rand::thread_rng();
+	let seed_number = rng.gen_range(1..=1000);
+	Integer::from(seed_number)
+}
 
 impl Mapping<Integer> for State<Integer> {
 	/// The pollard rho miner with a mapping function which is hard to compute reversely.
@@ -88,6 +101,14 @@ pub trait PollardRhoHash {
 		grain_size: u32,
 		flag: Arc<AtomicBool>,
 	) -> Option<Solutions<Integer>>;
+	/// This method solve the puzzle with parallel computing.
+	fn solve_parallel<C: Sync + Send + Clone + Hash<Integer, U256> + 'static>(
+		&self,
+		compute: &mut C,
+		grain_size: u32,
+		flag: Arc<AtomicBool>,
+		cpus: u8,
+	) -> Option<Solutions<Integer>>;
 	/// This method generate hash tester based on current difficulty.
 	fn hash_diff(&self) -> U256;
 }
@@ -102,14 +123,14 @@ impl PollardRhoHash for PublicKey {
 		let mut state_2 = state_1.clone();
 		let mut compute_2 = compute.clone();
 		let mut i = Integer::ZERO;
-		let n = state_1.solution.n.clone();
+		let n = Integer::from(self.p.sqrt_ref()) * SEARCH_LEN_FACTOR;
 		while &i < &n {
 			state_1 = state_1.transit(compute).unwrap();
 			state_2 = state_2.transit(&mut compute_2).unwrap().transit(&mut compute_2).unwrap();
 			if &state_1.work == &state_2.work {
 				if &state_1.solution != &state_2.solution {
 					// find the solution, then need to find the nonce.
-					break;
+					break
 				}
 				return None
 			}
@@ -124,12 +145,7 @@ impl PollardRhoHash for PublicKey {
 			state_1 = state_1.transit(compute).unwrap();
 			state_2 = state_2.transit(&mut compute_2).unwrap();
 			let (_, overflowed_1) = state_1.hash_encode().overflowing_mul(hash_diff);
-			let (_, overflowed_2) = state_2.hash_encode().overflowing_mul(hash_diff);
-			if !overflowed_1 || !overflowed_2 {
-				// if the second compute block meets the condition, swap the compute.
-				if !overflowed_2 {
-					*compute = compute_2;
-				}
+			if !overflowed_1 {
 				// find the nonce with a number of leading zero bits.
 				if &state_1.work == &state_2.work && &state_1.solution != &state_2.solution {
 					return Some((state_1.solution, state_2.solution))
@@ -140,6 +156,7 @@ impl PollardRhoHash for PublicKey {
 		}
 		None
 	}
+
 	fn solve_dist<C: Clone + Hash<Integer, U256>>(
 		&self,
 		compute: &mut C,
@@ -154,7 +171,7 @@ impl PollardRhoHash for PublicKey {
 		let mut i = Integer::ZERO;
 		// counter to check the status of other workers
 		let mut counter = 0;
-		let n = state_1.solution.n.clone();
+		let n = Integer::from(self.p.sqrt_ref()) * SEARCH_LEN_FACTOR;
 		while &i < &n {
 			state_1 = state_1.transit(compute).unwrap();
 			state_2 = state_2.transit(&mut compute_2).unwrap().transit(&mut compute_2).unwrap();
@@ -171,7 +188,7 @@ impl PollardRhoHash for PublicKey {
 			if &state_1.work == &state_2.work {
 				if &state_1.solution != &state_2.solution {
 					// go to next step to meet extra nonce conditions.
-					break;
+					break
 				}
 				return None
 			}
@@ -181,14 +198,13 @@ impl PollardRhoHash for PublicKey {
 		// extra nonce condition against distributed computing on clusters.
 		i = Integer::ZERO;
 		counter = 0;
-		let hash_diff =  self.hash_diff();
+		let hash_diff = self.hash_diff();
 		while &i < &n {
 			// keep rolling the dices until nonce meet the condition.
 			// There are difficulty / 2 zeros on the nonce.
 			state_1 = state_1.transit(compute).unwrap();
 			state_2 = state_2.transit(&mut compute_2).unwrap();
 			let (_, overflowed_1) = state_1.hash_encode().overflowing_mul(hash_diff);
-			let (_, overflowed_2) = state_2.hash_encode().overflowing_mul(hash_diff);
 			// check if need to check status of other workers
 			if counter >= grain_size {
 				let found = flag.load(Ordering::Relaxed);
@@ -198,11 +214,7 @@ impl PollardRhoHash for PublicKey {
 				}
 				counter = 0;
 			}
-			if !overflowed_1 || !overflowed_2 {
-				// if the second compute block meets the condition, swap the compute.
-				if !overflowed_2 {
-					*compute = compute_2;
-				}
+			if !overflowed_1 {
 				// poll found status, if peer nodes found the result, cancel and return none.
 				let found = flag.load(Ordering::Relaxed);
 				if found {
@@ -221,10 +233,108 @@ impl PollardRhoHash for PublicKey {
 		}
 		None
 	}
-	fn hash_diff(&self) -> U256{
-		let shift = self.bit_length / 2;
+
+	fn solve_parallel<C: Sync + Send + Clone + Hash<Integer, U256> + 'static>(
+		&self,
+		compute: &mut C,
+		grain_size: u32,
+		flag: Arc<AtomicBool>,
+		cpus: u8,
+	) -> Option<Solutions<Integer>> {
+		// prepare compute arrays
+		let mut threads = Vec::new();
+		let collision = Arc::new(RwLock::new(HashMap::<Integer, Solution<Integer>>::new()));
+		let res: Arc<Mutex<Option<Solutions<Integer>>>> = Arc::new(Mutex::new(None));
+		let nonce = Arc::new(Mutex::new(Integer::from(1)));
+		for _ in 0..cpus {
+			let mut new_compute = compute.clone();
+			let hash_diff = self.hash_diff();
+			let res_lock = res.clone();
+			// shared hash map for collision detection.
+			let col = collision.clone();
+			let found = flag.clone();
+			// the shared variable to pass final nonce value.
+			let work = nonce.clone();
+			let pubkey = self.clone();
+			threads.push(thread::spawn(move || {
+				let mut state = State::<Integer>::from_pub_key(pubkey.clone(), get_local_seed());
+				let mut i = Integer::ZERO;
+				let mut counter = 0;
+				let n = Integer::from(pubkey.p.sqrt_ref()) * SEARCH_LEN_FACTOR;
+				let mut existed;
+				let max_try = 10;
+				let mut j = 0;
+				loop {
+					while &i < &n {
+						state = state.transit(&mut new_compute).unwrap();
+						let (_, overflowed) = state.hash_encode().overflowing_mul(hash_diff);
+						if !overflowed {
+							{
+								let col_map = col.read().unwrap();
+								if col_map.contains_key(&state.work){
+									if let Some(sol_in_map) = col_map.get(&state.work){
+										if &state.solution != sol_in_map {
+											found.store(true, Ordering::Relaxed);
+											{
+												// update nonce value.
+												let mut this_work = work.lock().unwrap();
+												*this_work = state.work;
+											}
+											{
+												// update solution
+												let mut solutions = res_lock.lock().unwrap();
+												*solutions = Some((state.solution.clone(), sol_in_map.clone()));
+											}
+											return
+										}
+									} else {
+										// if the two collide nodes are the same, restart the state.
+										state = State::<Integer>::from_pub_key(pubkey.clone(), get_local_seed());
+									}
+									existed = true;
+								}else{
+									existed = false;
+								}
+							}
+							if !existed {
+								let mut col_map = col.write().unwrap();
+								col_map.entry(state.work.clone()).or_insert(state.solution.clone());
+							}
+						}
+						if counter >= grain_size {
+							if found.load(Ordering::Relaxed) {
+								// if other work found the solution, drop current work.
+								return
+							}
+							counter = 0;
+						}
+						i += 1;
+						counter += 1;
+					}
+					if j < max_try {
+						// cannot find the collision in 20x length of trails between distinguished points.
+						state = State::<Integer>::from_pub_key(pubkey.clone(), get_local_seed());
+						j += 1;
+						i = Integer::ZERO;
+					} else {
+						return
+					}
+				}
+			}));
+		}
+
+		threads.into_iter().for_each(|thread|{
+			thread.join().expect("The thread creating or execution failed !")});
+		// update compute
+		let work = Arc::try_unwrap(nonce).unwrap().into_inner().unwrap();
+		compute.set_nonce(&work);
+		Arc::try_unwrap(res).unwrap().into_inner().unwrap()
+	}
+
+	fn hash_diff(&self) -> U256 {
+		let shift = self.bit_length / 2 - POINT_DST_FACTOR;
 		if self.bit_length % 2 != 0 {
-			(U256::one()<<shift) + (U256::one()<<(shift-1))
+			(U256::one() << shift) + (U256::one() << (shift - 1))
 		} else {
 			U256::one() << shift
 		}

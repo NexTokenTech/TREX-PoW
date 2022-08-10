@@ -5,25 +5,23 @@ Here are the statistics of blake3 and sha256 with CPU mining difficulty from 32 
 The benchmark is running on an Intel 11 gen i9 processor with macOS.
 
 ```sh
-pollard_rho_hash/pollard_rho_diff_32_blake3     time:   [409.50 ms 420.96 ms 436.06 ms]
-pollard_rho_hash/pollard_rho_diff_32_sha256     time:   [493.55 ms 527.72 ms 559.01 ms]
-pollard_rho_hash/pollard_rho_diff_33_blake3     time:   [512.26 ms 586.64 ms 678.48 ms]
-pollard_rho_hash/pollard_rho_diff_33_sha256     time:   [702.96 ms 776.87 ms 842.88 ms]
-pollard_rho_hash/pollard_rho_diff_34_blake3     time:   [670.50 ms 719.43 ms 783.99 ms]
-pollard_rho_hash/pollard_rho_diff_34_sha256     time:   [999.77 ms 1.1006 s 1.2343 s]
+pollard_rho_hash/pollard_rho_diff_32_blake3     time:   [248.44 ms 257.30 ms 263.45 ms]
+pollard_rho_hash/pollard_rho_diff_32_sha256     time:   [588.25 ms 601.73 ms 609.61 ms]
+pollard_rho_hash/pollard_rho_diff_33_blake3     time:   [436.24 ms 452.27 ms 462.17 ms]
+pollard_rho_hash/pollard_rho_diff_33_sha256     time:   [500.00 ms 517.21 ms 535.64 ms]
+pollard_rho_hash/pollard_rho_diff_34_blake3     time:   [1.3144 s 1.4603 s 1.5826 s]
+pollard_rho_hash/pollard_rho_diff_34_sha256     time:   [1.6991 s 1.9128 s 2.1527 s]
 
 
 ```
 
 ## Boost from distributed computing
 The benchmark on distributed computing shows a boost with square root of the number of CPU cores in use.
-The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (2-4 cores in use, 
+The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (4 cores in use, 
 theoretically 2X speed, actually 1.56X speed).
 The mining difficulty for benchmarking is 38 bit-length.
 
 ```sh
-pollard_rho_distributed/pollard_rho_diff_38_base        1 CPUs    time:   [3.2874 s 3.6982 s 3.9335 s]
-pollard_rho_distributed/pollard_rho_diff_38_distributed 2 CPUs    time:   [2.4716 s 2.5862 s 2.6777 s]
-pollard_rho_distributed/pollard_rho_diff_38_distributed 3 CPUs    time:   [2.3070 s 2.4986 s 2.6445 s]
-pollard_rho_distributed/pollard_rho_diff_38_distributed 4 CPUs    time:   [2.0685 s 2.2158 s 2.3725 s]
+pollard_rho_distributed/pollard_rho_diff_38_base        1 CPUs    time:   [1.8239 s 2.0399 s 2.2700 s]
+pollard_rho_distributed/pollard_rho_diff_38_distributed 4 CPUs    time:   [1.1468 s 1.2208 s 1.3376 s]
 ```

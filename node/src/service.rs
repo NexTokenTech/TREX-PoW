@@ -382,7 +382,7 @@ pub fn new_full(
 						let mut compute = Compute {
 							difficulty: metadata.difficulty,
 							pre_hash: metadata.pre_hash,
-							nonce: U256::from(0i32),
+							nonce: U256::from(1i32),
 						};
 						// If failed to compare hash, sleep for one second
 						// dbg!("{:?}  {:?}",&mining_number,&current_number);

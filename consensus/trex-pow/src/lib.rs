@@ -1,10 +1,10 @@
 pub mod algorithm;
+pub mod distributed;
 pub mod generic;
 pub mod genesis;
 pub mod hash;
 mod keychain;
 pub mod utils;
-pub mod distributed;
 
 use codec::{Decode, Encode};
 use elgamal_trex::{
@@ -23,6 +23,7 @@ use std::sync::Arc;
 use trex_constants::{Difficulty, INIT_DIFFICULTY, MAX_DIFFICULTY, MIN_DIFFICULTY};
 
 // local packages.
+use crate::generic::StateHash;
 pub use crate::generic::{
 	CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, Solutions, State,
 };
@@ -31,11 +32,8 @@ use crate::utils::bigint_u128;
 use algorithm::PollardRhoHash;
 pub use hash::Blake3Compute as Compute;
 use keychain::{yield_pub_keys, RawKeySeeds};
+use std::sync::atomic::AtomicBool;
 use utils::{bigint_u256, gen_bigint_range, u256_bigint};
-use std::sync::{
-	atomic::{AtomicBool},
-};
-use crate::generic::StateHash;
 
 pub mod app {
 	use sp_application_crypto::{app_crypto, sr25519};
@@ -84,7 +82,8 @@ impl Seal {
 			}
 		}
 		let puzzle = new_pubkey.clone();
-		if let Some(solutions) = puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
+		if let Some(solutions) =
+			puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
 		{
 			// if find the solutions, build a new seal.
 			info!("🌩 find the solutions, build a new seal");
@@ -182,7 +181,7 @@ impl SolutionVerifier {
 		let y_2 = self.derive(&solutions.1);
 		if y_1 != y_2 {
 			warn!("The solution is not valid, cannot pass the block verification!");
-			return false;
+			return false
 		}
 		// if solutions are valid, verify the hash of nonce.
 		let hash_i = header.hash_integer().div_rem_euc(self.pubkey.p.clone()).1;
@@ -282,7 +281,7 @@ impl<B: BlockT<Hash = H256>> PowAlgorithm<B> for MinTREXAlgo {
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
 		if verifier.verify(&solutions, &header) {
-			return Ok(true);
+			return Ok(true)
 		}
 
 		Ok(false)
@@ -346,7 +345,7 @@ where
 		// See whether the seal's difficulty meets the difficulty requirement. If not, fail fast.
 		if !hash_meets_difficulty(&seal.difficulty, difficulty) {
 			warn!("The current node difficulty cannot match the difficulty in header's seal!");
-			return Ok(false);
+			return Ok(false)
 		}
 
 		// Make sure the provided work actually comes from the correct pre_hash
@@ -395,7 +394,7 @@ mod tests {
 
 	#[test]
 	fn try_pollard_rho_with_key_gen() {
-		let difficulty = 34;
+		let difficulty = 39;
 		let pubkey = get_test_pubkey(difficulty);
 		let mut loop_count = 0;
 		let limit = 10;
@@ -427,11 +426,11 @@ mod tests {
 	}
 
 	#[test]
-	fn try_pollard_rho_distributed(){
+	fn try_pollard_rho_distributed() {
 		let mut threads = Vec::new();
-		let cpu_n = 4;
+		let cpu_n = 6;
 		let found = Arc::new(AtomicBool::new(false));
-		let difficulty = 38;
+		let difficulty = 39;
 		for i in 0..cpu_n {
 			let flag = found.clone();
 			threads.push(thread::spawn(move || {
@@ -449,7 +448,7 @@ mod tests {
 							&validate, &verifier.pubkey.h,
 							"The found private key is not valid!"
 						);
-						return;
+						return
 					} else {
 						panic!("Failed to derive private key!")
 					}
@@ -465,6 +464,32 @@ mod tests {
 	}
 
 	#[test]
+	fn try_pollard_rho_parallel() {
+		let cpu_n = 6;
+		let difficulty = 39;
+		let pubkey = get_test_pubkey(difficulty);
+		let mut compute = get_test_header(difficulty);
+		let puzzle = pubkey.clone();
+		let found = Arc::new(AtomicBool::new(false));
+		if let Some(solutions) =
+			puzzle.solve_parallel(&mut compute, 10000, found.clone(), cpu_n)
+		{
+			let verifier = SolutionVerifier { pubkey };
+			if let Some(key) = verifier.key_gen(&solutions) {
+				let validate = Integer::from(
+					verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
+				);
+				assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
+				return
+			} else {
+				panic!("Failed to derive private key!")
+			}
+		} else {
+			panic!("Cannot find private key!")
+		}
+	}
+
+	#[test]
 	fn gen_pub_key() {
 		let difficulty = 39u32;
 		let p = Integer::from(1);
@@ -473,8 +498,15 @@ mod tests {
 		let old_pubkey = PublicKey { p, g, h, bit_length: difficulty };
 		let mut rand = RandState::new_mersenne_twister();
 		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand, difficulty);
-		let pubkey = PublicKey::from_raw(raw_pubkey);
-		println!("{:?}", pubkey);
+		let new_pubkey = PublicKey::from_raw(raw_pubkey);
+		let test_pubkey = PublicKey {
+			p: Integer::from_str_radix("209805312383", 10).unwrap(),
+			g: Integer::from_str_radix("38619647689", 10).unwrap(),
+			h: Integer::from_str_radix("82239889787", 10).unwrap(),
+			bit_length: difficulty,
+		};
+		assert_eq!(test_pubkey.p, new_pubkey.p, "The generated pubkey does not match expected result!");
+		// println!("{:?}", pubkey);
 	}
 
 	#[test]
