@@ -33,6 +33,8 @@ use utils::{bigint_u256, gen_bigint_range, u256_bigint};
 use std::sync::{
 	atomic::{AtomicBool},
 };
+use crate::keychain::RawKeySeedsData;
+use crate::utils::bigint_u128;
 
 pub mod app {
 	use sp_application_crypto::{app_crypto, sr25519};
@@ -71,10 +73,15 @@ impl Seal {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
 		let new_pubkey = keychain[(difficulty - MIN_DIFFICULTY) as usize].clone();
-		let mut new_seeds: RawKeySeeds =
-			[U256::from(1i32); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		// let mut new_seeds: RawKeySeeds =
+		// 	[U256::from(1i32); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		let mut new_seeds: RawKeySeeds = [RawKeySeedsData::U256(U256::from(1i32)); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
 		for (idx, key) in keychain.into_iter().enumerate() {
-			new_seeds[idx] = bigint_u256(&key.yield_seed());
+			if idx < 128 {
+				new_seeds[idx] = RawKeySeedsData::U128(bigint_u128(&key.yield_seed()));
+			}else{
+				new_seeds[idx] = RawKeySeedsData::U256(bigint_u256(&key.yield_seed()));
+			}
 		}
 		let puzzle = new_pubkey.clone();
 		if let Some(solutions) = puzzle.solve_parallel(compute, u256_bigint(&mining_seed), 10000, found.clone())

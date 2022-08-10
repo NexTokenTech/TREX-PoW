@@ -30,6 +30,14 @@ pub fn u256_bigint(unsigned: &U256) -> Integer {
 	Integer::from_digits(&num, Order::Lsf)
 }
 
+pub fn bigint_u128(int: &Integer) -> u128 {
+	int.to_u128().unwrap_or(0u128)
+}
+
+pub fn u128_bigint(unsigned: &u128) -> Integer {
+	Integer::from(unsigned.to_owned())
+}
+
 /// Derive private key from a pair of collided solutions.
 #[allow(dead_code)]
 pub fn eqs_solvers(

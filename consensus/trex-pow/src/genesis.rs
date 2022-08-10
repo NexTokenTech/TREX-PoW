@@ -2,12 +2,13 @@ use crate::{keychain::RawKeySeeds, Seal, Solution};
 use trex_constants::{Difficulty, MAX_DIFFICULTY, MIN_DIFFICULTY};
 use elgamal_trex::RawPublicKey;
 use sp_core::U256;
+use crate::keychain::RawKeySeedsData;
 
 pub fn genesis_seal(difficulty: Difficulty) -> Seal {
 	let genesis_solution =
 		Solution::<U256> { a: U256::from(1i32), b: U256::from(1i32), n: U256::from(1i32) };
 	let genesis_key_seeds: RawKeySeeds =
-		[U256::from(1i32); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		[RawKeySeedsData::U256(U256::from(1i32)); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
 	Seal {
 		difficulty,
 		pubkey: RawPublicKey {
