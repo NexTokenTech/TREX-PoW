@@ -61,3 +61,27 @@ pub fn run_pollard_rho_distributed<C: Clone + Hash<Integer, U256>>(
 		panic!("None of workers can find private key!");
 	}
 }
+
+/// Test Pollard Rho with distributed parallel algorithm.
+pub fn run_pollard_rho_parallel<C: Sync + Send + Clone + Hash<Integer, U256> + 'static>(
+	pubkey: &PublicKey,
+	compute: &mut C,
+	cpus: u8,
+) {
+	let puzzle = pubkey.clone();
+	let grain_size = 10000;
+	let found = Arc::new(AtomicBool::new(false));
+	if let Some(solutions) = puzzle.solve_parallel(compute, grain_size, found, cpus) {
+		let verifier = SolutionVerifier { pubkey: pubkey.clone() };
+		if let Some(key) = verifier.key_gen(&solutions) {
+			let validate =
+				Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
+			assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
+			return
+		} else {
+			panic!("Failed to derive private key!");
+		}
+	} else {
+		panic!("None of workers can find private key!");
+	}
+}

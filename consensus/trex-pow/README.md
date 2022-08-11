@@ -25,3 +25,12 @@ The mining difficulty for benchmarking is 38 bit-length.
 pollard_rho_distributed/pollard_rho_diff_38_base        1 CPUs    time:   [1.8239 s 2.0399 s 2.2700 s]
 pollard_rho_distributed/pollard_rho_diff_38_distributed 4 CPUs    time:   [1.1468 s 1.2208 s 1.3376 s]
 ```
+
+## Boost from parallel computing
+The benchmark on parallel computing shows linear performance boost from parallel computing algorithms.
+With 4 cores of CPUs, the performance is ~4X faster than using single core.
+
+```sh
+pollard_rho_distributed/pollard_rho_diff_38_base        1 CPUs    time:   [1.8914 s 2.0096 s 2.2018 s]
+pollard_rho_distributed/pollard_rho_diff_38_parallel    4 CPUs    time:   [439.89 ms 449.90 ms 458.54 ms]
+```
