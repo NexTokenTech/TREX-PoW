@@ -73,9 +73,7 @@ impl Seal {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
 		let new_pubkey = keychain[(difficulty - MIN_DIFFICULTY) as usize].clone();
-		// let mut new_seeds: RawKeySeeds =
-		// 	[U256::from(1i32); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
-		let mut new_seeds: RawKeySeeds = [RawKeySeedsData::U256(U256::from(1i32)); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		let mut new_seeds: RawKeySeeds = [RawKeySeedsData::U128(1u128); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
 		for (idx, key) in keychain.into_iter().enumerate() {
 			if idx < 128 {
 				new_seeds[idx] = RawKeySeedsData::U128(bigint_u128(&key.yield_seed()));
@@ -451,5 +449,25 @@ mod tests {
 		let raw_pubkey = old_pubkey.to_raw().yield_pubkey(&mut rand, difficulty);
 		let pubkey = PublicKey::from_raw(raw_pubkey);
 		println!("{:?}", pubkey);
+	}
+
+	#[test]
+	fn test_seeds_len(){
+		let mut genesis_key_seeds: RawKeySeeds =
+			[RawKeySeedsData::U128(1u128); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		for idx in 0..genesis_key_seeds.len() {
+			if idx >= 128 {
+				genesis_key_seeds[idx] = RawKeySeedsData::U256(U256::from(1i32));
+			}
+		}
+		println!("half 128 half 256:{:?}",genesis_key_seeds.encode().len());
+
+		let mut genesis_key_seeds_1: RawKeySeeds =
+			[RawKeySeedsData::U256(U256::from(1i32)); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		println!("all 256:{:?}",genesis_key_seeds_1.encode().len());
+
+		let mut genesis_key_seeds_2: RawKeySeeds =
+			[RawKeySeedsData::U128(1u128); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+		println!("all 128:{:?}",genesis_key_seeds_2.encode().len());
 	}
 }

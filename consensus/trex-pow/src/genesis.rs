@@ -7,8 +7,13 @@ use crate::keychain::RawKeySeedsData;
 pub fn genesis_seal(difficulty: Difficulty) -> Seal {
 	let genesis_solution =
 		Solution::<U256> { a: U256::from(1i32), b: U256::from(1i32), n: U256::from(1i32) };
-	let genesis_key_seeds: RawKeySeeds =
-		[RawKeySeedsData::U256(U256::from(1i32)); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+	let mut genesis_key_seeds: RawKeySeeds =
+		[RawKeySeedsData::U128(1u128); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
+	for idx in 0..genesis_key_seeds.len() {
+		if idx >= 128 {
+			genesis_key_seeds[idx] = RawKeySeedsData::U256(U256::from(1i32));
+		}
+	}
 	Seal {
 		difficulty,
 		pubkey: RawPublicKey {
