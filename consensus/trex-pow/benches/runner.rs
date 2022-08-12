@@ -1,30 +1,23 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use elgamal_trex::elgamal::PublicKey;
-use rand::{self, Rng};
 use rug::Integer;
 use sp_core::U256;
-use trex_pow::{generic::Hash, algorithm::PollardRhoHash, SolutionVerifier};
-
-/// Get thread local seed (0 - 1000) for running algorithm.
-fn get_local_seed() -> Integer {
-	let mut rng = rand::thread_rng();
-	let seed_number = rng.gen_range(1..=1000);
-	Integer::from(seed_number)
-}
+use std::sync::{
+	atomic::{AtomicBool, Ordering},
+	Arc,
+};
+use trex_pow::{algorithm::{PollardRhoHash, get_local_seed}, generic::Hash, SolutionVerifier};
 
 pub fn run_pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compute: &mut C) {
-	let mut loop_count = 0;
-	let limit = 10;
 	let mut seed = get_local_seed();
 	let puzzle = pubkey.clone();
+	let mut loop_count = 0;
+	let limit = 10;
 	loop {
 		if let Some(solutions) = puzzle.solve(compute, seed.clone()) {
 			let verifier = SolutionVerifier { pubkey: pubkey.clone() };
 			if let Some(key) = verifier.key_gen(&solutions) {
-				let validate = Integer::from(
-					verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-				);
+				let validate =
+					Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
 				assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
 				return
 			} else {
@@ -37,18 +30,23 @@ pub fn run_pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compu
 			panic!("Cannot find private key!")
 		}
 	}
+
 }
 
-pub fn run_pollard_rho_parallel<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compute: &mut C, flag: Arc<AtomicBool>) {
+/// Test Pollard Rho with distributed distributed algorithm.
+pub fn run_pollard_rho_distributed<C: Clone + Hash<Integer, U256>>(
+	pubkey: &PublicKey,
+	compute: &mut C,
+	flag: Arc<AtomicBool>,
+) {
 	let seed = get_local_seed();
 	let puzzle = pubkey.clone();
 	let grain_size = 10000;
-	if let Some(solutions) = puzzle.solve_parallel(compute, seed.clone(), grain_size, flag.clone()) {
+	if let Some(solutions) = puzzle.solve_dist(compute, seed.clone(), grain_size, flag.clone()) {
 		let verifier = SolutionVerifier { pubkey: pubkey.clone() };
 		if let Some(key) = verifier.key_gen(&solutions) {
-			let validate = Integer::from(
-				verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-			);
+			let validate =
+				Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
 			assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
 			return
 		} else {
@@ -60,6 +58,30 @@ pub fn run_pollard_rho_parallel<C: Clone + Hash<Integer, U256>>(pubkey: &PublicK
 		if found {
 			return
 		}
+		panic!("None of workers can find private key!");
+	}
+}
+
+/// Test Pollard Rho with distributed parallel algorithm.
+pub fn run_pollard_rho_parallel<C: Sync + Send + Clone + Hash<Integer, U256> + 'static>(
+	pubkey: &PublicKey,
+	compute: &mut C,
+	cpus: u8,
+) {
+	let puzzle = pubkey.clone();
+	let grain_size = 10000;
+	let found = Arc::new(AtomicBool::new(false));
+	if let Some(solutions) = puzzle.solve_parallel(compute, grain_size, found, cpus) {
+		let verifier = SolutionVerifier { pubkey: pubkey.clone() };
+		if let Some(key) = verifier.key_gen(&solutions) {
+			let validate =
+				Integer::from(verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap());
+			assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
+			return
+		} else {
+			panic!("Failed to derive private key!");
+		}
+	} else {
 		panic!("None of workers can find private key!");
 	}
 }

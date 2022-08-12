@@ -19,7 +19,7 @@ use trex_constants::{INIT_DIFFICULTY, MINING_WORKER_BUILD_TIME, MINING_WORKER_TI
 use trex_pow::MinTREXAlgo;
 #[cfg(not(feature = "min-algo"))]
 use trex_pow::TREXAlgo;
-use trex_pow::{genesis, Compute, Seal,parallel_mining};
+use trex_pow::{genesis, Compute, Seal, distributed};
 use trex_runtime::{self, BlockNumber, opaque::Block, RuntimeApi};
 
 use crate::mining::generate_mining_seed;
@@ -30,7 +30,7 @@ use std::sync::{
 	atomic::{AtomicBool,Ordering},
 };
 use async_trait::async_trait;
-use trex_pow::parallel_mining::ParallelBlockImport;
+use trex_pow::distributed::DistBlockImport;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -122,7 +122,7 @@ type PowAlgo = TREXAlgo<FullClient>;
 
 type PowBlockImport = sc_consensus_pow::PowBlockImport<
 	Block,
-	ParallelBlockImport<
+	DistBlockImport<
 		Block,
 		Arc<FullClient>,
 		FullClient,
@@ -212,16 +212,16 @@ pub fn new_partial(
 	// Initialize an AtomicBool Arc pointer.
 	let found = Arc::new(AtomicBool::new(false));
 
-	// Initialize pow_block_import middleware parallel_block_import.
-	let parallel_block_import = parallel_mining::ParallelBlockImport::new(
+	// Initialize pow_block_import middleware distributed_block_import.
+	let dist_block_import = distributed::DistBlockImport::new(
 		client.clone(),
 		client.clone(),
 		found.clone()
 	);
 
-	// Replace the middleware parallel_block_import with the previous client Arc pointer.
+	// Replace the middleware dist_block_import with the previous client Arc pointer.
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
-		parallel_block_import,
+		dist_block_import,
 		Arc::clone(&client),
 		algorithm.clone(),
 		0, // check inherent starting at block 0
@@ -382,7 +382,7 @@ pub fn new_full(
 						let mut compute = Compute {
 							difficulty: metadata.difficulty,
 							pre_hash: metadata.pre_hash,
-							nonce: U256::from(0i32),
+							nonce: U256::from(1i32),
 						};
 						// If failed to compare hash, sleep for one second
 						// dbg!("{:?}  {:?}",&mining_number,&current_number);

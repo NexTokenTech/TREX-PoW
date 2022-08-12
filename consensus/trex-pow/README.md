@@ -5,34 +5,32 @@ Here are the statistics of blake3 and sha256 with CPU mining difficulty from 32 
 The benchmark is running on an Intel 11 gen i9 processor with macOS.
 
 ```sh
-Benchmarking pollard test:/pollard rho difficulty for 32 use blake3: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 32 use blake3                        
-time:   [216.06 ms 218.59 ms 220.51 ms]
+pollard_rho_hash/pollard_rho_diff_32_blake3     time:   [248.44 ms 257.30 ms 263.45 ms]
+pollard_rho_hash/pollard_rho_diff_32_sha256     time:   [588.25 ms 601.73 ms 609.61 ms]
+pollard_rho_hash/pollard_rho_diff_33_blake3     time:   [436.24 ms 452.27 ms 462.17 ms]
+pollard_rho_hash/pollard_rho_diff_33_sha256     time:   [500.00 ms 517.21 ms 535.64 ms]
+pollard_rho_hash/pollard_rho_diff_34_blake3     time:   [1.3144 s 1.4603 s 1.5826 s]
+pollard_rho_hash/pollard_rho_diff_34_sha256     time:   [1.6991 s 1.9128 s 2.1527 s]
 
-Benchmarking pollard test:/pollard rho difficulty for 32 use sha256: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 32 use sha256                        
-time:   [334.20 ms 346.49 ms 367.76 ms]
 
-Benchmarking pollard test:/pollard rho difficulty for 33 use blake3: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 33 use blake3                        
-time:   [309.94 ms 342.14 ms 380.23 ms]
+```
 
-Benchmarking pollard test:/pollard rho difficulty for 33 use sha256: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 33 use sha256                        
-time:   [395.40 ms 404.44 ms 411.99 ms]
+## Boost from distributed computing
+The benchmark on distributed computing shows a boost with square root of the number of CPU cores in use.
+The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (4 cores in use, 
+theoretically 2X speed, actually 1.56X speed).
+The mining difficulty for benchmarking is 38 bit-length.
 
-Benchmarking pollard test:/pollard rho difficulty for 34 use blake3: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 34 use blake3                        
-time:   [372.96 ms 384.68 ms 398.64 ms]
-
-Benchmarking pollard test:/pollard rho difficulty for 34 use sha256: Collecting 10 samples in est                                                                                                 pollard test:/pollard rho difficulty for 34 use sha256                        
-time:   [475.34 ms 497.87 ms 526.84 ms]
+```sh
+pollard_rho_distributed/pollard_rho_diff_38_base        1 CPUs    time:   [1.8239 s 2.0399 s 2.2700 s]
+pollard_rho_distributed/pollard_rho_diff_38_distributed 4 CPUs    time:   [1.1468 s 1.2208 s 1.3376 s]
 ```
 
 ## Boost from parallel computing
-The benchmark on parallel computing shows a boost with square root of the number of CPU cores in use.
-The benchmark was running on Intel 11 gen i7 6 cores processor with macOS (4 cores in use, 
-theoretically 2X speed, actually 1.56X speed).
-The mining difficulty for benchmarking is 39 bit-length.
+The benchmark on parallel computing shows linear performance boost from parallel computing algorithms.
+With 4 cores of CPUs, the performance is ~4X faster than using single core.
 
 ```sh
-pollard_rho_parallel/pollard_rho_diff_39_base 
-time:   [321.72 ms 334.85 ms 348.50 ms]
-pollard_rho_parallel/pollard_rho_diff_39_parallel 
-time:   [209.65 ms 214.43 ms 220.10 ms]
+pollard_rho_distributed/pollard_rho_diff_38_base        1 CPUs    time:   [1.8914 s 2.0096 s 2.2018 s]
+pollard_rho_distributed/pollard_rho_diff_38_parallel    4 CPUs    time:   [439.89 ms 449.90 ms 458.54 ms]
 ```

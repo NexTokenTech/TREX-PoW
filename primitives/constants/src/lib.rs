@@ -30,19 +30,19 @@ pub const DIFFICULTY_DAMP_FACTOR: u128 = 3;
 /// avoids getting stuck when trying to increase difficulty subject to dampening
 pub const MIN_DIFFICULTY: u128 = 32;
 /// Initial mining difficulty
-pub const INIT_DIFFICULTY: u128 = 59;
+pub const INIT_DIFFICULTY: u128 = 56;
 /// Maximum difficulty.
 pub const MAX_DIFFICULTY: u128 = 224;
 
-/// Value of 1 CAP.
+/// Value of 1 TREX.
 pub const DOLLARS: u128 = 1_000_000_000_000;
 /// Value of Current Miner Reward
 pub const REWARD_VALUE: u128 = 60;
-/// Value of cents relative to CAP.
+/// Value of cents relative to TREX.
 pub const CENTS: u128 = DOLLARS / 100;
-/// Value of millicents relative to CAP.
+/// Value of millicents relative to TREX.
 pub const MILLICENTS: u128 = CENTS / 1_000;
-/// Value of microcents relative to CAP.
+/// Value of microcents relative to TREX.
 pub const MICROCENTS: u128 = MILLICENTS / 1_000;
 
 pub const fn deposit(items: u32, bytes: u32) -> u128 {
