@@ -12,7 +12,7 @@ pub struct Cli {
 	pub author: Option<String>,
 
 	#[structopt(long)]
-	pub parallel_cpus: Option<u8>
+	pub cpus: Option<u8>
 }
 
 #[derive(Debug, clap::Subcommand)]

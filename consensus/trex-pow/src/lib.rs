@@ -68,7 +68,7 @@ impl Seal {
 		compute: &mut C,
 		mining_seed: U256,
 		found: Arc<AtomicBool>,
-		parallel_cpus: Option<u8>
+		cpus: Option<u8>
 	) -> Option<Self> {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
@@ -83,8 +83,14 @@ impl Seal {
 			}
 		}
 		let puzzle = new_pubkey.clone();
-		if let Some(solutions) =  match parallel_cpus {
-			Some(value)=> puzzle.solve_parallel(compute, 10000, found.clone(),value),
+		if let Some(solutions) =  match cpus {
+			Some(value)=> {
+				if value > 1 {
+					puzzle.solve_parallel(compute, 10000, found.clone(),value)
+				}else{
+					puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
+				}
+			},
 			None => puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
 		}
 		{
