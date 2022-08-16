@@ -255,6 +255,7 @@ pub fn new_full(
 	config: Configuration,
 	mining: bool,
 	author: Option<&str>,
+	parallel_cpus: Option<u32>
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,

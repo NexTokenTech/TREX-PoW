@@ -10,6 +10,9 @@ pub struct Cli {
 
 	#[structopt(long)]
 	pub author: Option<String>,
+
+	#[structopt(long)]
+	pub parallel_cpus: Option<u32>
 }
 
 #[derive(Debug, clap::Subcommand)]
