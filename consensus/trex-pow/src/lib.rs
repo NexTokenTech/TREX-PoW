@@ -23,12 +23,10 @@ use std::sync::Arc;
 use trex_constants::{Difficulty, INIT_DIFFICULTY, MAX_DIFFICULTY, MIN_DIFFICULTY};
 
 // local packages.
-use crate::generic::StateHash;
 pub use crate::generic::{
 	CycleFinding, Hash, MapResult, Mapping, MappingError, Solution, Solutions, State,
 };
-use crate::keychain::RawKeySeedsData;
-use crate::utils::bigint_u128;
+use crate::{generic::StateHash, keychain::RawKeySeedsData, utils::bigint_u128};
 use algorithm::PollardRhoHash;
 pub use hash::Blake3Compute as Compute;
 use keychain::{yield_pub_keys, RawKeySeeds};
@@ -63,12 +61,19 @@ pub struct Seal {
 }
 
 impl Seal {
-	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>  + std::marker::Sync + std::marker::Send + 'static>(
+	pub fn try_cpu_mining<
+		C: Clone
+			+ Hash<Integer, U256>
+			+ OnCompute<Difficulty>
+			+ std::marker::Sync
+			+ std::marker::Send
+			+ 'static,
+	>(
 		&self,
 		compute: &mut C,
 		mining_seed: U256,
 		found: Arc<AtomicBool>,
-		cpus: Option<u8>
+		cpus: Option<u8>,
 	) -> Option<Self> {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
@@ -83,17 +88,16 @@ impl Seal {
 			}
 		}
 		let puzzle = new_pubkey.clone();
-		if let Some(solutions) =  match cpus {
-			Some(value)=> {
+		let seed = u256_bigint(&mining_seed);
+		if let Some(solutions) = match cpus {
+			Some(value) =>
 				if value > 1 {
-					puzzle.solve_parallel(compute, 10000, found.clone(),value)
-				}else{
-					puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
-				}
-			},
-			None => puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
-		}
-		{
+					puzzle.solve_parallel(compute, seed, 10000, found.clone(), value)
+				} else {
+					puzzle.solve_dist(compute, seed, 10000, found.clone())
+				},
+			None => puzzle.solve_dist(compute, seed, 10000, found.clone()),
+		} {
 			// if find the solutions, build a new seal.
 			info!("🌩 find the solutions, build a new seal");
 			Some(Seal {
@@ -186,6 +190,10 @@ impl SolutionVerifier {
 
 	/// Verify the validation of solutions and
 	fn verify(&self, solutions: &Solutions<Integer>, header: &Compute) -> bool {
+		if solutions.0 == solutions.1 {
+			warn!("The solutions are duplicate, cannot pass verification!");
+			return false
+		}
 		let y_1 = self.derive(&solutions.0);
 		let y_2 = self.derive(&solutions.1);
 		if y_1 != y_2 {
@@ -201,6 +209,7 @@ impl SolutionVerifier {
 			warn!("The solution is not valid, cannot pass header hash verification!");
 			return false
 		}
+		// test the distinguished points.
 		let state_1 = State::<Integer> {
 			solution: solutions.0.clone(),
 			nonce: nonce.clone(),
@@ -357,6 +366,13 @@ where
 			return Ok(false)
 		}
 
+		// See if the seal's difficulty meets the difficulty of a pubkey.
+		let pubkey_diff = seal.pubkey.bit_length.clone() as Difficulty;
+		if !hash_meets_difficulty(&seal.difficulty, pubkey_diff) {
+			warn!("The public key difficulty cannot match the difficulty in header's seal!");
+			return Ok(false)
+		}
+
 		// Make sure the provided work actually comes from the correct pre_hash
 		let header = Compute { difficulty, pre_hash: *pre_hash, nonce: seal.nonce };
 		let raw_key = seal.pubkey;
@@ -367,9 +383,9 @@ where
 			Solution::<Integer>::from_u256(&seal.solutions.1),
 		);
 		if verifier.verify(&solutions, &header) {
-			return Ok(true);
+			return Ok(true)
 		}
-		dbg!("The block header cannot be verified!");
+		warn!("The block header cannot be verified!");
 		Ok(false)
 	}
 }
@@ -379,8 +395,7 @@ mod tests {
 	use super::*;
 	use elgamal_trex::KeyGenerator;
 	use rug::Integer;
-	use std::sync::atomic::AtomicBool;
-	use std::thread;
+	use std::{sync::atomic::AtomicBool, thread};
 
 	fn get_test_pubkey(diff: u32) -> PublicKey {
 		// generate a random public key.
@@ -401,6 +416,21 @@ mod tests {
 		}
 	}
 
+	fn verify_key(verifier: SolutionVerifier, solutions: &Solutions<Integer>){
+		if let Some(key) = verifier.key_gen(solutions) {
+			let validate = Integer::from(
+				verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
+			);
+			assert_eq!(
+				&validate, &verifier.pubkey.h,
+				"The found private key is not valid!"
+			);
+			return
+		} else {
+			panic!("Failed to derive private key!")
+		}
+	}
+
 	#[test]
 	fn try_pollard_rho_with_key_gen() {
 		let difficulty = 39;
@@ -412,19 +442,10 @@ mod tests {
 		let puzzle = pubkey.clone();
 		loop {
 			if let Some(solutions) = puzzle.solve(&mut compute, seed.clone()) {
-				let verifier = SolutionVerifier { pubkey };
-				if let Some(key) = verifier.key_gen(&solutions) {
-					let validate = Integer::from(
-						verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-					);
-					assert_eq!(
-						&validate, &verifier.pubkey.h,
-						"The found private key is not valid!"
-					);
-					return;
-				} else {
-					panic!("Failed to derive private key!")
-				}
+				let verifier = SolutionVerifier { pubkey: pubkey.clone() };
+				assert_eq!(true, verifier.verify(&solutions, &compute), "Mining results cannot be verified!");
+				verify_key(verifier, &solutions);
+				return
 			} else if loop_count < limit {
 				loop_count += 1;
 				seed += 1;
@@ -449,21 +470,8 @@ mod tests {
 				let mut compute = get_test_header(difficulty);
 				if let Some(solutions) = puzzle.solve_dist(&mut compute, seed, 10000, flag) {
 					let verifier = SolutionVerifier { pubkey: pubkey.clone() };
-					if let Some(key) = verifier.key_gen(&solutions) {
-						let validate = Integer::from(
-							verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-						);
-						assert_eq!(
-							&validate, &verifier.pubkey.h,
-							"The found private key is not valid!"
-						);
-						return
-					} else {
-						panic!("Failed to derive private key!")
-					}
-				} else {
-					// print!("Cannot find private key with seed {i}!");
-					return;
+					assert_eq!(true, verifier.verify(&solutions, &compute), "Mining results cannot be verified!");
+					verify_key(verifier, &solutions);
 				}
 			}));
 		}
@@ -480,20 +488,13 @@ mod tests {
 		let mut compute = get_test_header(difficulty);
 		let puzzle = pubkey.clone();
 		let found = Arc::new(AtomicBool::new(false));
-		let mining_seed = U256::from(1i32);
+		let mining_seed = Integer::from(1i32);
 		if let Some(solutions) =
-			puzzle.solve_parallel(&mut compute, u256_bigint(&mining_seed),10000, found.clone(), cpu_n)
+			puzzle.solve_parallel(&mut compute, mining_seed, 10000, found.clone(), cpu_n)
 		{
 			let verifier = SolutionVerifier { pubkey };
-			if let Some(key) = verifier.key_gen(&solutions) {
-				let validate = Integer::from(
-					verifier.pubkey.g.pow_mod_ref(&key.x, &verifier.pubkey.p).unwrap(),
-				);
-				assert_eq!(&validate, &verifier.pubkey.h, "The found private key is not valid!");
-				return
-			} else {
-				panic!("Failed to derive private key!")
-			}
+			assert_eq!(true, verifier.verify(&solutions, &compute), "Mining results cannot be verified!");
+			verify_key(verifier, &solutions);
 		} else {
 			panic!("Cannot find private key!")
 		}
@@ -515,7 +516,10 @@ mod tests {
 			h: Integer::from_str_radix("82239889787", 10).unwrap(),
 			bit_length: difficulty,
 		};
-		assert_eq!(test_pubkey.p, new_pubkey.p, "The generated pubkey does not match expected result!");
+		assert_eq!(
+			test_pubkey.p, new_pubkey.p,
+			"The generated pubkey does not match expected result!"
+		);
 		// println!("{:?}", pubkey);
 	}
 

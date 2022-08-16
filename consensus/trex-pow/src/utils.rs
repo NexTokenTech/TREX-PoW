@@ -1,8 +1,16 @@
 use rug::{integer::Order, rand::RandState, Complete, Integer};
 use sp_core::{H256, U256};
+use rand::{self, Rng};
 
 /// Helper function to pollard rho algorithm, 2021/01/07 added
 /// modified by yangfh2004, 2022/01/31
+
+/// Get thread local seed (0 - 1000) for running algorithm.
+pub fn get_local_seed() -> Integer {
+	let mut rng = rand::thread_rng();
+	let seed_number = rng.gen_range(1..=1000);
+	Integer::from(seed_number)
+}
 
 pub fn gen_bigint_range(rand: &mut RandState, start: &Integer, stop: &Integer) -> Integer {
 	let range = Integer::from(stop - start);

@@ -28,7 +28,7 @@ pub const CLAMP_FACTOR: u128 = 1;
 pub const DIFFICULTY_DAMP_FACTOR: u128 = 3;
 /// Minimum difficulty, enforced in diff re-target
 /// avoids getting stuck when trying to increase difficulty subject to dampening
-pub const MIN_DIFFICULTY: u128 = 32;
+pub const MIN_DIFFICULTY: u128 = 48;
 /// Initial mining difficulty
 pub const INIT_DIFFICULTY: u128 = 56;
 /// Maximum difficulty.
