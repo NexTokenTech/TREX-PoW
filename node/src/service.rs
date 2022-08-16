@@ -255,7 +255,7 @@ pub fn new_full(
 	config: Configuration,
 	mining: bool,
 	author: Option<&str>,
-	parallel_cpus: Option<u32>
+	parallel_cpus: Option<u8>
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -395,7 +395,7 @@ pub fn new_full(
 							mining_number = current_number.clone();
 							// Reset the value pointed to by the AtomicBool pointer
 							found.store(false, Ordering::Relaxed);
-							if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed, found.clone()) {
+							if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed, found.clone(),parallel_cpus.clone()) {
 								// Found a new seal, reset the mining seed.
 								mining_seed = U256::from(1i32);
 								block_on(worker.submit(new_seal.encode()));

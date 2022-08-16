@@ -63,11 +63,12 @@ pub struct Seal {
 }
 
 impl Seal {
-	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>>(
+	pub fn try_cpu_mining<C: Clone + Hash<Integer, U256> + OnCompute<Difficulty>  + std::marker::Sync + std::marker::Send + 'static>(
 		&self,
 		compute: &mut C,
 		mining_seed: U256,
 		found: Arc<AtomicBool>,
+		parallel_cpus: Option<u8>
 	) -> Option<Self> {
 		let difficulty = compute.get_difficulty();
 		let keychain = yield_pub_keys(self.seeds.clone());
@@ -82,8 +83,10 @@ impl Seal {
 			}
 		}
 		let puzzle = new_pubkey.clone();
-		if let Some(solutions) =
-			puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
+		if let Some(solutions) =  match parallel_cpus {
+			Some(value)=> puzzle.solve_parallel(compute, 10000, found.clone(),value),
+			None => puzzle.solve_dist(compute, u256_bigint(&mining_seed), 10000, found.clone())
+		}
 		{
 			// if find the solutions, build a new seal.
 			info!("🌩 find the solutions, build a new seal");
@@ -471,8 +474,9 @@ mod tests {
 		let mut compute = get_test_header(difficulty);
 		let puzzle = pubkey.clone();
 		let found = Arc::new(AtomicBool::new(false));
+		let mining_seed = U256::from(1i32);
 		if let Some(solutions) =
-			puzzle.solve_parallel(&mut compute, 10000, found.clone(), cpu_n)
+			puzzle.solve_parallel(&mut compute, u256_bigint(&mining_seed),10000, found.clone(), cpu_n)
 		{
 			let verifier = SolutionVerifier { pubkey };
 			if let Some(key) = verifier.key_gen(&solutions) {
