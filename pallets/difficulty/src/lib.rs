@@ -9,7 +9,6 @@ use fast_math::log2;
 use frame_support::traits::OnTimestampSet;
 #[cfg(not(feature = "std"))]
 use num_traits::float::FloatCore;
-use num_traits::Pow;
 pub use pallet::*;
 use sp_runtime::traits::UniqueSaturatedInto;
 use sp_std::cmp::{max, min};
@@ -24,7 +23,7 @@ pub fn damp(actual: u128, goal: u128, damp_factor: u128) -> u128 {
 
 /// limit value to be within some factor from a goal
 pub fn clamp(block_time_target: u128, measured_block_time: u128) -> i128 {
-	let log2_resource = (block_time_target as f64 / measured_block_time as f64).pow(2);
+	let log2_resource = (block_time_target as f64 / measured_block_time as f64).powi(2);
 	let log2_result = log2(log2_resource as f32);
 	let round_result = log2_result.round();
 	max(min(round_result as i128, CLAMP_FACTOR as i128), -(CLAMP_FACTOR as i128)) as i128
