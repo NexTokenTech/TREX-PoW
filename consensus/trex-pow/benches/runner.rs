@@ -5,7 +5,7 @@ use std::sync::{
 	atomic::{AtomicBool, Ordering},
 	Arc,
 };
-use trex_pow::{algorithm::{PollardRhoHash, get_local_seed}, generic::Hash, SolutionVerifier};
+use trex_pow::{algorithm::PollardRhoHash, utils::get_local_seed, generic::Hash, SolutionVerifier};
 
 pub fn run_pollard_rho<C: Clone + Hash<Integer, U256>>(pubkey: &PublicKey, compute: &mut C) {
 	let mut seed = get_local_seed();

@@ -19,17 +19,18 @@ use trex_constants::{INIT_DIFFICULTY, MINING_WORKER_BUILD_TIME, MINING_WORKER_TI
 use trex_pow::MinTREXAlgo;
 #[cfg(not(feature = "min-algo"))]
 use trex_pow::TREXAlgo;
-use trex_pow::{genesis, Compute, Seal, distributed};
-use trex_runtime::{self, BlockNumber, opaque::Block, RuntimeApi};
+use trex_pow::{distributed, genesis, Compute, Seal};
+use trex_runtime::{self, opaque::Block, BlockNumber, RuntimeApi};
 
 use crate::mining::generate_mining_seed;
+use async_trait::async_trait;
 use log::{info, warn};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-use std::{path::PathBuf, str::FromStr};
-use std::sync::{
-	atomic::{AtomicBool,Ordering},
+use std::{
+	path::PathBuf,
+	str::FromStr,
+	sync::atomic::{AtomicBool, Ordering},
 };
-use async_trait::async_trait;
 use trex_pow::distributed::DistBlockImport;
 
 // Our native executor instance.
@@ -99,7 +100,6 @@ pub(crate) type FullClient =
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
-
 pub struct CreateInherentDataProviders;
 
 #[async_trait]
@@ -122,11 +122,7 @@ type PowAlgo = TREXAlgo<FullClient>;
 
 type PowBlockImport = sc_consensus_pow::PowBlockImport<
 	Block,
-	DistBlockImport<
-		Block,
-		Arc<FullClient>,
-		FullClient,
-	>,
+	DistBlockImport<Block, Arc<FullClient>, FullClient>,
 	FullClient,
 	FullSelectChain,
 	PowAlgo,
@@ -152,12 +148,7 @@ pub fn new_partial(
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
-		(
-			PowBlockImport,
-			Option<Telemetry>,
-			PowAlgo,
-			Arc<AtomicBool>
-		),
+		(PowBlockImport, Option<Telemetry>, PowAlgo, Arc<AtomicBool>),
 	>,
 	ServiceError,
 > {
@@ -213,11 +204,8 @@ pub fn new_partial(
 	let found = Arc::new(AtomicBool::new(false));
 
 	// Initialize pow_block_import middleware distributed_block_import.
-	let dist_block_import = distributed::DistBlockImport::new(
-		client.clone(),
-		client.clone(),
-		found.clone()
-	);
+	let dist_block_import =
+		distributed::DistBlockImport::new(client.clone(), client.clone(), found.clone());
 
 	// Replace the middleware dist_block_import with the previous client Arc pointer.
 	let pow_block_import = sc_consensus_pow::PowBlockImport::new(
@@ -255,6 +243,7 @@ pub fn new_full(
 	config: Configuration,
 	mining: bool,
 	author: Option<&str>,
+	cpus: Option<u8>,
 ) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
@@ -264,7 +253,7 @@ pub fn new_full(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (pow_block_import, mut telemetry, algorithm,found),
+		other: (pow_block_import, mut telemetry, algorithm, found),
 	} = new_partial(&config)?;
 
 	let (network, system_rpc_tx, network_starter) =
@@ -347,25 +336,25 @@ pub fn new_full(
 			thread::spawn(move || {
 				// get current pubkey from current block header.
 				let blockchain = current_backend.blockchain();
-				let find_seal = || -> (Option<Seal>,BlockNumber) {
+				let find_seal = || -> (Option<Seal>, BlockNumber) {
 					let chain_info = blockchain.info();
 					let best_hash = chain_info.best_hash;
 					let best_num = chain_info.best_number;
 					// info!("Current best block number: {}", best_num);
 					if best_num == 0 {
 						// genesis block does not have a a header, need to create a artificial seal.
-						return (Some(genesis::genesis_seal(INIT_DIFFICULTY)),best_num)
+						return (Some(genesis::genesis_seal(INIT_DIFFICULTY)), best_num)
 					}
 					if let Some(header) = blockchain.header(BlockId::Hash(best_hash)).unwrap() {
 						let mut digest = header.digest;
 						while let Some(item) = digest.pop() {
 							if let Some(raw_seal) = item.as_seal() {
 								let mut coded_seal = raw_seal.1;
-								return (Some(Seal::decode(&mut coded_seal).unwrap()),best_num)
+								return (Some(Seal::decode(&mut coded_seal).unwrap()), best_num)
 							}
 						}
 					}
-					(None,best_num)
+					(None, best_num)
 				};
 				// WARNING: do not use 0 as initial seed.
 				let mut mining_seed = generate_mining_seed(node_key).unwrap_or(U256::from(1i32));
@@ -386,15 +375,22 @@ pub fn new_full(
 						};
 						// If failed to compare hash, sleep for one second
 						// dbg!("{:?}  {:?}",&mining_number,&current_number);
-						// If mining_number and current_number are equal, it means you need to rest for one second, otherwise continue try_cpu_mining.
-						if mining_number != 0 && mining_number == current_number.to_owned(){
+						// If mining_number and current_number are equal, it means you need to rest
+						// for one second, otherwise continue try_cpu_mining.
+						if mining_number != 0 && mining_number == current_number.to_owned() {
 							thread::sleep(Duration::new(1, 0));
-						}else{
-							// Assign the value of current_number to mining_number to keep them consistent.
+						} else {
+							// Assign the value of current_number to mining_number to keep them
+							// consistent.
 							mining_number = current_number.clone();
 							// Reset the value pointed to by the AtomicBool pointer
 							found.store(false, Ordering::Relaxed);
-							if let Some(new_seal) = seal.try_cpu_mining(&mut compute, mining_seed, found.clone()) {
+							if let Some(new_seal) = seal.try_cpu_mining(
+								&mut compute,
+								mining_seed,
+								found.clone(),
+								cpus.clone(),
+							) {
 								// Found a new seal, reset the mining seed.
 								mining_seed = U256::from(1i32);
 								block_on(worker.submit(new_seal.encode()));

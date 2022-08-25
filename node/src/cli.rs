@@ -10,6 +10,9 @@ pub struct Cli {
 
 	#[structopt(long)]
 	pub author: Option<String>,
+
+	#[structopt(long)]
+	pub cpus: Option<u8>
 }
 
 #[derive(Debug, clap::Subcommand)]

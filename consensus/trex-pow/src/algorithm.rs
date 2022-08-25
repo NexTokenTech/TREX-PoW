@@ -7,20 +7,12 @@ use rug::{Complete, Integer};
 use sp_core::U256;
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc, RwLock, Mutex};
 use std::thread;
-use rand::{self, Rng};
 
 /// This factor is to reduce the length of trails between distinguished point so that the search
 /// is more efficient.
 /// The expected length = sqrt(p) / 2^POINT_DST_FACTOR
 const POINT_DST_FACTOR: u32 = 8;
 const SEARCH_LEN_FACTOR: u32 = 8;
-
-/// Get thread local seed (0 - 1000) for running algorithm.
-pub fn get_local_seed() -> Integer {
-	let mut rng = rand::thread_rng();
-	let seed_number = rng.gen_range(1..=1000);
-	Integer::from(seed_number)
-}
 
 impl Mapping<Integer> for State<Integer> {
 	/// The pollard rho miner with a mapping function which is hard to compute reversely.
@@ -105,6 +97,7 @@ pub trait PollardRhoHash {
 	fn solve_parallel<C: Sync + Send + Clone + Hash<Integer, U256> + 'static>(
 		&self,
 		compute: &mut C,
+		seed: Integer,
 		grain_size: u32,
 		flag: Arc<AtomicBool>,
 		cpus: u8,
@@ -237,6 +230,7 @@ impl PollardRhoHash for PublicKey {
 	fn solve_parallel<C: Sync + Send + Clone + Hash<Integer, U256> + 'static>(
 		&self,
 		compute: &mut C,
+		seed: Integer,
 		grain_size: u32,
 		flag: Arc<AtomicBool>,
 		cpus: u8,
@@ -246,7 +240,8 @@ impl PollardRhoHash for PublicKey {
 		let collision = Arc::new(RwLock::new(HashMap::<Integer, Solution<Integer>>::new()));
 		let res: Arc<Mutex<Option<Solutions<Integer>>>> = Arc::new(Mutex::new(None));
 		let nonce = Arc::new(Mutex::new(Integer::from(1)));
-		for _ in 0..cpus {
+		let max_try = 10;
+		for cpu_i in 0..cpus {
 			let mut new_compute = compute.clone();
 			let hash_diff = self.hash_diff();
 			let res_lock = res.clone();
@@ -254,16 +249,16 @@ impl PollardRhoHash for PublicKey {
 			let col = collision.clone();
 			let found = flag.clone();
 			// the shared variable to pass final nonce value.
-			let work = nonce.clone();
+			let this_nonce = nonce.clone();
 			let pubkey = self.clone();
+			let local_seed = seed.clone() + max_try * cpu_i;
 			threads.push(thread::spawn(move || {
-				let mut state = State::<Integer>::from_pub_key(pubkey.clone(), get_local_seed());
 				let mut i = Integer::ZERO;
 				let mut counter = 0;
 				let n = Integer::from(pubkey.p.sqrt_ref()) * SEARCH_LEN_FACTOR;
 				let mut existed;
-				let max_try = 10;
 				let mut j = 0;
+				let mut state = State::<Integer>::from_pub_key(pubkey.clone(), local_seed.clone());
 				loop {
 					while &i < &n {
 						state = state.transit(&mut new_compute).unwrap();
@@ -277,8 +272,8 @@ impl PollardRhoHash for PublicKey {
 											found.store(true, Ordering::Relaxed);
 											{
 												// update nonce value.
-												let mut this_work = work.lock().unwrap();
-												*this_work = state.work;
+												let mut nonce_guard = this_nonce.lock().unwrap();
+												*nonce_guard = state.nonce;
 											}
 											{
 												// update solution
@@ -288,8 +283,10 @@ impl PollardRhoHash for PublicKey {
 											return
 										}
 									} else {
-										// if the two collide nodes are the same, restart the state.
-										state = State::<Integer>::from_pub_key(pubkey.clone(), get_local_seed());
+										// if the two collide nodes are the same, restart the search with different seed.
+										j += 1;
+										state = State::<Integer>::from_pub_key(pubkey.clone(), local_seed.clone()+j);
+										i = Integer::ZERO;
 									}
 									existed = true;
 								}else{
@@ -313,8 +310,8 @@ impl PollardRhoHash for PublicKey {
 					}
 					if j < max_try {
 						// cannot find the collision in 20x length of trails between distinguished points.
-						state = State::<Integer>::from_pub_key(pubkey.clone(), get_local_seed());
 						j += 1;
+						state = State::<Integer>::from_pub_key(pubkey.clone(), local_seed.clone() + j);
 						i = Integer::ZERO;
 					} else {
 						return
