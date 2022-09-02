@@ -269,6 +269,10 @@ impl PollardRhoHash for PublicKey {
 								if col_map.contains_key(&state.work){
 									if let Some(sol_in_map) = col_map.get(&state.work){
 										if &state.solution != sol_in_map {
+											// poll found status, if peer nodes found the result, cancel and return none.
+											if found.load(Ordering::Relaxed) {
+												return
+											}
 											found.store(true, Ordering::Relaxed);
 											{
 												// update nonce value.

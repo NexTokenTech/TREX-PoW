@@ -1,20 +1,8 @@
-use crate::{mock::*, Error};
-use frame_support::{assert_noop, assert_ok};
+use crate::clamp;
 
 #[test]
-fn it_works_for_default_value() {
-	new_test_ext().execute_with(|| {
-		// Dispatch a signed extrinsic.
-		assert_ok!(DifficultyModule::do_something(Origin::signed(1), 42));
-		// Read pallet storage and assert an expected result.
-		assert_eq!(DifficultyModule::something(), Some(42));
-	});
-}
-
-#[test]
-fn correct_error_for_none_value() {
-	new_test_ext().execute_with(|| {
-		// Ensure the expected error is thrown when no value is present.
-		assert_noop!(DifficultyModule::cause_error(Origin::signed(1)), Error::<Test>::NoneValue);
-	});
+fn test_clamp_algo(){
+	let result = clamp(3600,3100);
+	println!("result for clamp {}",&result);
+	assert_eq!(1,result,"Difficulty does not need to increase by 1");
 }

@@ -14,25 +14,12 @@ use sp_runtime::traits::UniqueSaturatedInto;
 use sp_std::cmp::{max, min};
 
 #[cfg(test)]
-mod mock;
-
-#[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
-
-/// Move value linearly toward a goal
-pub fn damp(actual: u128, goal: u128, damp_factor: u128) -> u128 {
-	(actual + (damp_factor - 1) * goal) / damp_factor
-}
-
 /// limit value to be within some factor from a goal
-pub fn clamp(block_time_target: u128, measured_block_time: u128) -> i128 {
-	let log2_resource = (block_time_target / measured_block_time).pow(2);
-	let log2_result = log2(log2_resource as f32);
-	let round_result = log2_result.round();
-	max(min(round_result as i128, CLAMP_FACTOR as i128), -(CLAMP_FACTOR as i128)) as i128
+pub fn clamp(block_time_target: Difficulty, measured_block_time: Difficulty) -> i128 {
+	let adjustment = log2((block_time_target as f32 / measured_block_time as f32).powi(2)).round();
+	max(min(adjustment as i128, CLAMP_FACTOR as i128), -(CLAMP_FACTOR as i128))
 }
 
 #[frame_support::pallet]
@@ -151,18 +138,15 @@ pub mod pallet {
 					ts_delta = 1;
 				}
 
-				// Damping needs to be verified again, first without damping
-				// let damp_value = damp(ts_delta, block_time_window, DIFFICULTY_DAMP_FACTOR);
-
 				// adjust time delta toward goal subject to clamping
 				let adj_ts = clamp(block_time_window, ts_delta);
 
 				// Difficulty adjustment and storage
 				let mut difficulty = Self::difficulty().unwrap_or(DIFFICULTY_DEFAULT);
 				if adj_ts > 0 {
-					difficulty = difficulty + adj_ts as u128;
-				} else {
-					difficulty = difficulty - adj_ts as u128;
+					difficulty = difficulty + CLAMP_FACTOR;
+				}else if adj_ts < 0 {
+					difficulty = difficulty - CLAMP_FACTOR;
 				}
 				let difficulty_final;
 				if difficulty < MIN_DIFFICULTY {
