@@ -9,6 +9,10 @@ repository = "https://github.com/NexTokenTech/Trex"
 
 [dependencies]
 sp-api = { default-features = false, version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24"}
+sp-runtime = { default-features = false, version = "6.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.24" }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+	"derive",
+]}
 
 [dev-dependencies]
 serde_json = "1.0.74"
@@ -17,4 +21,6 @@ serde_json = "1.0.74"
 default = ["std"]
 std = [
 	"sp-api/std",
+	"sp-runtime/std",
+	"codec/std"
 ]

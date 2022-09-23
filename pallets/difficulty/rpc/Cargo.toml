@@ -1,5 +1,5 @@
 [package]
-name = "pallet-storage-rpc"
+name = "pallet-difficulty-rpc"
 version = "4.0.0-dev"
 description = "A pallet that demonstrates simple RPC for summing numbers"
 authors = ["NexToken Technologies - Trex Dev Team <team@trex.ink>"]
@@ -25,7 +25,7 @@ sp-runtime = { default-features = false, version = "6.0.0", git = "https://githu
 
 # local packages
 
-pallet-storage-runtime-api = { version = "4.0.0-dev", path = "./runtime-api", default-features = false }
+pallet-difficulty-runtime-api = { version = "4.0.0-dev", path = "./runtime-api", default-features = false }
 
 [features]
 default = ["std"]
@@ -33,5 +33,5 @@ std = [
   "serde",
   "sp-api/std",
   "sp-runtime/std",
-  "pallet-storage-runtime-api/std"
+  "pallet-difficulty-runtime-api/std"
 ]

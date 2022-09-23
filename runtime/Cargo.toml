@@ -46,10 +46,11 @@ hex-literal = { version = "0.3.4", optional = true }
 # Local Dependencies
 trex-constants = { path = "../primitives/constants"}
 pallet-difficulty = { version = "0.1.0", default-features = false, path = "../pallets/difficulty" }
+pallet-difficulty-runtime-api = { default-features = false, path = "../pallets/difficulty/rpc/runtime-api" }
 
 # Local Pallet for TREX Storage
 pallet-storage = { default-features = false, path = "../pallets/storage" }
-pallet-storage-runtime-api = { default-features = false, path = "../pallets/storage/runtime-api" }
+pallet-storage-runtime-api = { default-features = false, path = "../pallets/storage/rpc/runtime-api" }
 pallet-trex = { default-features = false, path = "../pallets/trex" }
 pallet-rewards = { default-features = false,path = "../pallets/rewards" }
 #getrandom = { version = "0.2", features = ["js"] }

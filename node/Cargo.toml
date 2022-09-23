@@ -70,7 +70,10 @@ trex-pow = {path = '../consensus/trex-pow'}
 trex-runtime = { path = "../runtime" }
 # custom RPC call Runtime API infered trex packages
 pallet-storage-rpc = { path = "../pallets/storage/rpc" }
-pallet-storage-runtime-api = { path = "../pallets/storage/runtime-api" }
+pallet-storage-runtime-api = { path = "../pallets/storage/rpc/runtime-api" }
+pallet-difficulty-rpc = { path = "../pallets/difficulty/rpc"}
+pallet-difficulty-runtime-api = { path = "../pallets/difficulty/rpc/runtime-api" }
+
 # custom inherent package
 trex-inherent = { path = "../primitives/consensus/trex_provider" }
 # local packages
