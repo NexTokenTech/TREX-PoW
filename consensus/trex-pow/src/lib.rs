@@ -81,7 +81,7 @@ impl Seal {
 		let mut new_seeds: RawKeySeeds =
 			[RawKeySeedsData::U128(1u128); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
 		for (idx, key) in keychain.into_iter().enumerate() {
-			if idx < 128 {
+			if idx < (128 - MIN_DIFFICULTY) as usize {
 				new_seeds[idx] = RawKeySeedsData::U128(bigint_u128(&key.yield_seed()));
 			} else {
 				new_seeds[idx] = RawKeySeedsData::U256(bigint_u256(&key.yield_seed()));

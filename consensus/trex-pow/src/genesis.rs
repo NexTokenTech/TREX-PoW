@@ -10,7 +10,7 @@ pub fn genesis_seal(difficulty: Difficulty) -> Seal {
 	let mut genesis_key_seeds: RawKeySeeds =
 		[RawKeySeedsData::U128(1u128); (MAX_DIFFICULTY - MIN_DIFFICULTY) as usize];
 	for idx in 0..genesis_key_seeds.len() {
-		if idx >= 128 {
+		if idx >= (128 - MIN_DIFFICULTY) as usize {
 			genesis_key_seeds[idx] = RawKeySeedsData::U256(U256::from(1i32));
 		}
 	}
