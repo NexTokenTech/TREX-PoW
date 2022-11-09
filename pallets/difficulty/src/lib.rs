@@ -6,7 +6,7 @@ use trex_constants::{
 	MIN_DIFFICULTY,
 };
 use fast_math::log2;
-use frame_support::traits::OnTimestampSet;
+use frame_support::traits::{OnTimestampSet,Get};
 #[cfg(not(feature = "std"))]
 use num_traits::float::FloatCore;
 pub use pallet::*;
@@ -174,5 +174,26 @@ pub mod pallet {
 				<CurrentHeight<T>>::put(current_height);
 			}
 		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	pub fn get_avg_blocktime() -> u32 {
+		let block_time =
+			UniqueSaturatedInto::<u128>::unique_saturated_into(T::TargetBlockTime::get());
+		let data = PastDifficultiesAndTimestamps::<T>::get();
+		let mut ts_delta = 0u128;
+		for i in 1..(DIFFICULTY_ADJUST_WINDOW as usize) {
+			let prev: Option<u128> =
+				data[i - 1].map(|d| d.timestamp.unique_saturated_into());
+			let cur: Option<u128> = data[i].map(|d| d.timestamp.unique_saturated_into());
+
+			let delta = match (prev, cur) {
+				(Some(prev), Some(cur)) => cur.saturating_sub(prev) / 1000,
+				_ => block_time.into(),
+			};
+			ts_delta = ts_delta.saturating_add(delta);
+		}
+		(ts_delta / DIFFICULTY_ADJUST_WINDOW as u128) as u32
 	}
 }

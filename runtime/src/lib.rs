@@ -47,6 +47,8 @@ mod weights;
 /// Import the difficulty pallet.
 pub use pallet_difficulty;
 
+pub use pallet_storage;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -304,6 +306,12 @@ impl_runtime_apis! {
 	impl pallet_storage_runtime_api::SumStorageApi<Block> for Runtime{
 		fn get_sum() -> u32{
 			StorageModule::get_sum()
+		}
+	}
+
+	impl pallet_difficulty_runtime_api::DiffAdjustmentApi<Block> for Runtime{
+		fn get_avg_blocktime() -> u32{
+			DifficultyModule::get_avg_blocktime()
 		}
 	}
 
